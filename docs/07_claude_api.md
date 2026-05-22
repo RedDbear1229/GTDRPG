@@ -403,6 +403,8 @@ interface ClaudeApiService {
     ): ClaudeMessageResponse
 }
 
+// kotlinx.serialization — @Serializable 필수 (Gson 불사용)
+@Serializable
 data class ClaudeMessageRequest(
     val model: String,
     val max_tokens: Int,
@@ -410,22 +412,26 @@ data class ClaudeMessageRequest(
     val messages: List<ClaudeMessage>
 )
 
+@Serializable
 data class ClaudeMessage(
     val role: String,   // "user" | "assistant"
     val content: String
 )
 
+@Serializable
 data class ClaudeMessageResponse(
     val id: String,
     val content: List<ContentBlock>,
     val usage: Usage
 )
 
+@Serializable
 data class ContentBlock(
     val type: String,
     val text: String
 )
 
+@Serializable
 data class Usage(
     val input_tokens: Int,
     val output_tokens: Int

@@ -860,32 +860,56 @@ interface CombatRepository {
 ## 5.5 TypeConverters (Room)
 
 ```kotlin
+// Gson 없음 — kotlinx.serialization + 표준 라이브러리만 사용
 @ProvidedTypeConverter
 class Converters {
-    private val gson = Gson()
-    
+
+    // Enum 변환: name 문자열로 저장 (외부 라이브러리 불필요)
     @TypeConverter
     fun fromCharacterClass(value: String?): CharacterClass? =
         value?.let { CharacterClass.valueOf(it) }
-    
+
     @TypeConverter
     fun toCharacterClass(classType: CharacterClass?): String? = classType?.name
-    
+
     @TypeConverter
     fun fromTaskStatus(value: String?): TaskStatus? =
         value?.let { TaskStatus.valueOf(it) }
-    
+
     @TypeConverter
     fun toTaskStatus(status: TaskStatus?): String? = status?.name
-    
+
+    @TypeConverter
+    fun fromLifeArea(value: String?): LifeArea? =
+        value?.let { LifeArea.valueOf(it) }
+
+    @TypeConverter
+    fun toLifeArea(area: LifeArea?): String? = area?.name
+
+    @TypeConverter
+    fun fromEncounterType(value: String?): EncounterType? =
+        value?.let { EncounterType.valueOf(it) }
+
+    @TypeConverter
+    fun toEncounterType(type: EncounterType?): String? = type?.name
+
+    // List<String> 변환: kotlinx.serialization Json 사용 (Gson 대체)
     @TypeConverter
     fun fromStringList(value: String): List<String> =
-        gson.fromJson(value, object : TypeToken<List<String>>() {}.type) ?: emptyList()
-    
+        Json.decodeFromString(value)
+
     @TypeConverter
-    fun toStringList(list: List<String>): String = gson.toJson(list)
-    
-    // 기타 Enum 및 복잡한 타입 변환...
+    fun toStringList(list: List<String>): String =
+        Json.encodeToString(list)
+
+    // Map<String, Int> 변환 (lifeAreaStats 등)
+    @TypeConverter
+    fun fromStringIntMap(value: String): Map<String, Int> =
+        Json.decodeFromString(value)
+
+    @TypeConverter
+    fun toStringIntMap(map: Map<String, Int>): String =
+        Json.encodeToString(map)
 }
 ```
 

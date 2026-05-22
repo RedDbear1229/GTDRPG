@@ -195,16 +195,173 @@ com.questlog/
 
 ---
 
-## 8.4 의존성 목록 (build.gradle.kts)
+## 8.4 확정 기술 스택 결정 사항
+
+### 스택 선택 근거 요약
+
+| 영역 | 선택 | 핵심 이유 |
+|------|------|----------|
+| UI | Jetpack Compose | 선언형 UI, Kotlin 네이티브, Material3 |
+| 아키텍처 | MVVM + Clean Architecture | Jetpack 공식, Domain 레이어 순수 Kotlin → 미래 KMP 확장 가능 |
+| DI | Hilt | WorkManager·ViewModel 통합, 컴파일 타임 검증 |
+| DB | Room | Flow 네이티브, @Transaction 원자 쓰기, Jetpack 공식 |
+| 직렬화 | kotlinx.serialization **단독** | Kotlin null-safe, KMP 대응, Gson 제거 |
+| 네트워크 | Retrofit + kotlinx.serialization converter | Gson 컨버터 대체 |
+| 내비게이션 | Jetpack Navigation Compose (type-safe routes) | Navigation 2.8+ 타입 안전 라우트 |
+| 비동기 | Coroutines + Flow | Android 표준, Room/Retrofit 통합 |
+| 테스트 | JUnit 5 + MockK + Turbine + Paparazzi | 파라미터화·Flow·스크린샷 테스트 |
+| CI/배포 | GitHub Actions + ADB sideload | 혼자 사용, Play Store 불필요 |
+
+---
+
+## 8.5 의존성 목록 (build.gradle.kts + libs.versions.toml)
+
+### libs.versions.toml
+
+```toml
+[versions]
+# Kotlin
+kotlin = "2.1.0"
+kotlinx-coroutines = "1.9.0"
+kotlinx-serialization = "1.7.3"
+ksp = "2.1.0-1.0.29"
+
+# Android
+agp = "8.7.3"
+compileSdk = "35"
+minSdk = "26"
+targetSdk = "35"
+
+# Compose
+composeBom = "2024.12.01"
+activityCompose = "1.9.3"
+navigationCompose = "2.8.5"
+
+# Jetpack
+lifecycle = "2.8.7"
+room = "2.6.1"
+datastore = "1.1.1"
+hilt = "2.53.1"
+hiltNavigation = "1.2.0"
+work = "2.10.0"
+securityCrypto = "1.1.0-alpha06"
+
+# Networking
+retrofit = "2.11.0"
+retrofitKotlinxSerializer = "1.0.0"  # jakewharton/retrofit2-kotlinx-serialization-converter
+okhttp = "4.12.0"
+
+# UI 라이브러리
+lottie = "6.6.0"
+vico = "2.0.0-beta.3"
+coil = "2.7.0"
+
+# 로깅
+timber = "5.0.1"
+
+# 테스트
+junit5 = "5.11.3"
+junit5Android = "1.5.2"           # mannodermaus/android-junit5
+mockk = "1.13.13"
+turbine = "1.2.0"
+paparazzi = "1.3.5"
+robolectric = "4.14.1"
+
+[libraries]
+# Compose
+androidx-compose-bom = { group = "androidx.compose", name = "compose-bom", version.ref = "composeBom" }
+androidx-compose-ui = { group = "androidx.compose.ui", name = "ui" }
+androidx-compose-ui-graphics = { group = "androidx.compose.ui", name = "ui-graphics" }
+androidx-compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
+androidx-compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
+androidx-compose-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
+androidx-compose-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+androidx-compose-material3 = { group = "androidx.compose.material3", name = "material3" }
+androidx-compose-material-icons-extended = { group = "androidx.compose.material", name = "material-icons-extended" }
+androidx-compose-animation = { group = "androidx.compose.animation", name = "animation" }
+androidx-activity-compose = { group = "androidx.activity", name = "activity-compose", version.ref = "activityCompose" }
+androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+
+# Lifecycle + ViewModel
+androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
+androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
+
+# Room
+androidx-room-runtime = { group = "androidx.room", name = "room-runtime", version.ref = "room" }
+androidx-room-ktx = { group = "androidx.room", name = "room-ktx", version.ref = "room" }
+androidx-room-compiler = { group = "androidx.room", name = "room-compiler", version.ref = "room" }
+androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+
+# DataStore
+androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# Security
+androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "securityCrypto" }
+
+# Hilt
+hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
+hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
+androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigation" }
+androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltNavigation" }
+androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltNavigation" }
+
+# Coroutines
+kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
+
+# Networking — Gson 제거, kotlinx.serialization 단독 사용
+retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
+retrofit-kotlinx-serialization = { group = "com.jakewharton.retrofit", name = "retrofit2-kotlinx-serialization-converter", version.ref = "retrofitKotlinxSerializer" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
+
+# 직렬화 (단독)
+kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
+
+# WorkManager
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "work" }
+
+# UI 라이브러리
+lottie-compose = { group = "com.airbnb.android", name = "lottie-compose", version.ref = "lottie" }
+vico-compose = { group = "com.patrykandpatrick.vico", name = "compose", version.ref = "vico" }
+vico-compose-m3 = { group = "com.patrykandpatrick.vico", name = "compose-m3", version.ref = "vico" }
+coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
+
+# 테스트
+junit-jupiter = { group = "org.junit.jupiter", name = "junit-jupiter", version.ref = "junit5" }
+junit-jupiter-params = { group = "org.junit.jupiter", name = "junit-jupiter-params", version.ref = "junit5" }
+mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "robolectric" }
+# Compose UI Test (androidTest)
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version = "1.2.1" }
+androidx-compose-ui-test-junit4-android = { group = "androidx.compose.ui", name = "ui-test-junit4" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+hilt-android = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
+ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
+junit5-android = { id = "de.mannodermaus.android-junit5", version.ref = "junit5Android" }
+paparazzi = { id = "app.cash.paparazzi", version.ref = "paparazzi" }
+```
+
+### build.gradle.kts (app 모듈)
 
 ```kotlin
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.ksp)
-    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.junit5.android)   // JUnit 5 Android 플러그인
+    alias(libs.plugins.paparazzi)        // 스크린샷 테스트
 }
 
 dependencies {
@@ -219,34 +376,34 @@ dependencies {
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.compose.animation)
     implementation(libs.androidx.activity.compose)
-    
-    // Navigation
+
+    // Navigation (type-safe routes — Navigation 2.8+)
     implementation(libs.androidx.navigation.compose)
-    
+
     // ─────────────────────────────────────
     // ViewModel + Lifecycle
     // ─────────────────────────────────────
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    
+
     // ─────────────────────────────────────
     // Room DB
     // ─────────────────────────────────────
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
-    
+
     // ─────────────────────────────────────
     // DataStore
     // ─────────────────────────────────────
     implementation(libs.androidx.datastore.preferences)
-    
+
     // ─────────────────────────────────────
-    // Security (EncryptedSharedPreferences)
+    // Security (EncryptedSharedPreferences — API Key 저장)
     // ─────────────────────────────────────
     implementation(libs.androidx.security.crypto)
-    
+
     // ─────────────────────────────────────
     // Hilt (DI)
     // ─────────────────────────────────────
@@ -255,72 +412,68 @@ dependencies {
     implementation(libs.androidx.hilt.navigation.compose)
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
-    
+
     // ─────────────────────────────────────
     // Coroutines
     // ─────────────────────────────────────
     implementation(libs.kotlinx.coroutines.android)
-    
+
+    // ─────────────────────────────────────
+    // 직렬화 (kotlinx.serialization 단독 — Gson 사용 안 함)
+    // ─────────────────────────────────────
+    implementation(libs.kotlinx.serialization.json)
+
     // ─────────────────────────────────────
     // Networking (Claude API)
+    // Gson 컨버터 제거 → kotlinx.serialization 컨버터 사용
     // ─────────────────────────────────────
     implementation(libs.retrofit)
-    implementation(libs.retrofit.converter.gson)
+    implementation(libs.retrofit.kotlinx.serialization)
     implementation(libs.okhttp)
     implementation(libs.okhttp.logging.interceptor)
-    
-    // ─────────────────────────────────────
-    // 애니메이션
-    // ─────────────────────────────────────
-    implementation(libs.lottie.compose)           // Lottie 애니메이션
-    
-    // ─────────────────────────────────────
-    // 차트 (통계 화면)
-    // ─────────────────────────────────────
-    implementation(libs.vico.compose)             // 라인/바 차트
-    implementation(libs.vico.compose.m3)
-    
-    // ─────────────────────────────────────
-    // 이미지
-    // ─────────────────────────────────────
-    implementation(libs.coil.compose)
-    
+
     // ─────────────────────────────────────
     // WorkManager
     // ─────────────────────────────────────
     implementation(libs.androidx.work.runtime.ktx)
-    
+
     // ─────────────────────────────────────
-    // 음성 인식 (내장 API 사용)
+    // 애니메이션
     // ─────────────────────────────────────
-    // Android 내장 SpeechRecognizer - 별도 의존성 없음
-    
+    implementation(libs.lottie.compose)
+
+    // ─────────────────────────────────────
+    // 차트 (통계 화면)
+    // ─────────────────────────────────────
+    implementation(libs.vico.compose)
+    implementation(libs.vico.compose.m3)
+
+    // ─────────────────────────────────────
+    // 이미지
+    // ─────────────────────────────────────
+    implementation(libs.coil.compose)
+
     // ─────────────────────────────────────
     // 로깅
     // ─────────────────────────────────────
     implementation(libs.timber)
-    
+
     // ─────────────────────────────────────
-    // 직렬화
+    // 테스트 — JUnit 5 (JUnit 4 사용 안 함)
     // ─────────────────────────────────────
-    implementation(libs.kotlinx.serialization.json)
-    implementation(libs.gson)
-    
-    // ─────────────────────────────────────
-    // 크래시 리포팅 (v1.5)
-    // ─────────────────────────────────────
-    // implementation(libs.firebase.crashlytics)
-    
-    // ─────────────────────────────────────
-    // 테스트
-    // ─────────────────────────────────────
-    testImplementation(libs.junit)
+    testImplementation(libs.junit.jupiter)
+    testImplementation(libs.junit.jupiter.params)     // 파라미터화 테스트
+    testImplementation(libs.mockk)                    // Kotlin 네이티브 모킹
+    testImplementation(libs.turbine)                  // Flow 테스트
     testImplementation(libs.kotlinx.coroutines.test)
-    testImplementation(libs.mockk)
-    testImplementation(libs.turbine)               // Flow 테스트
+    testImplementation(libs.robolectric)              // Android Context (Room In-Memory)
     testImplementation(libs.androidx.room.testing)
+
+    // 스크린샷 테스트 (Paparazzi — 에뮬레이터 불필요)
+    // paparazzi 플러그인이 자동으로 testImplementation 추가함
+
+    // Compose UI 통합 테스트 (주요 플로우만)
     androidTestImplementation(libs.androidx.test.ext.junit)
-    androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
@@ -673,32 +826,361 @@ class RandomEncounterWorker(...) : CoroutineWorker(...) { ... }
 
 ## 8.8 테스트 전략
 
-```
-단위 테스트 (Unit Tests):
-  - UseCase 테스트 (비즈니스 로직)
-  - ViewModel 테스트 (상태 변화)
-  - Repository 테스트 (Fake 구현)
-  - 게임 메커니즘 계산 테스트 (XP, CR, 능력치)
-  
-통합 테스트 (Integration Tests):
-  - Room DB In-Memory 테스트
-  - Repository 구현 테스트
-  
-UI 테스트 (End-to-End):
-  - Compose UI 테스트 (주요 플로우)
-  - 온보딩 플로우
-  - 퀘스트 완료 플로우
+### 계층별 테스트 도구 매핑
 
-목표 커버리지:
-  UseCase: 90%+
-  ViewModel: 80%+
-  Repository: 70%+
-  
+```
+┌─────────────────────────────────────────────────────────┐
+│  레이어          도구                  실행 환경          │
+├─────────────────────────────────────────────────────────┤
+│  UseCase         JUnit 5 + MockK       JVM (빠름)        │
+│  ViewModel       JUnit 5 + Turbine     JVM              │
+│  Repository      JUnit 5 + Robolectric JVM (Room 포함)  │
+│  Composable      Paparazzi             JVM (에뮬 불필요) │
+│  통합 플로우     Compose UI Test       에뮬레이터 (최소) │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 단위 테스트 (JVM, 빠름 — CI 필수)
+
+```kotlin
+// CompleteTaskUseCaseTest.kt — JUnit 5 + MockK + Turbine
+class CompleteTaskUseCaseTest {
+
+    @MockK lateinit var taskRepository: TaskRepository
+    @MockK lateinit var characterRepository: CharacterRepository
+    @MockK lateinit var combatRepository: CombatRepository
+    @MockK lateinit var narrativeRepository: ClaudeRepository
+    @MockK lateinit var completionDao: CompletionDao
+
+    private lateinit var useCase: CompleteTaskUseCase
+
+    @BeforeEach
+    fun setUp() {
+        MockKAnnotations.init(this)
+        useCase = CompleteTaskUseCase(
+            taskRepository, characterRepository,
+            combatRepository, narrativeRepository, completionDao
+        )
+    }
+
+    @Test
+    fun `더블탭 시 AlreadyCompleted 반환`() = runTest {
+        // task가 이미 DONE 상태
+        val task = fakeTask(status = TaskStatus.DONE)
+        val log = fakeCombatLog()
+        coEvery { taskRepository.getTaskById(any()) } returns task
+        coEvery { combatRepository.getCombatLogByTaskId(any()) } returns log
+
+        val result = useCase("task-1")
+
+        assertIs<CompleteTaskResult.AlreadyCompleted>(result)
+        coVerify(exactly = 0) { completionDao.commitCompletion(any(), any(), any(), any(), any(), any(), any()) }
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [20, 19, 15, 10, 2, 1])  // 크리티컬~미스 전 범위
+    fun `D20 결과별 올바른 XP 계산`(d20: Int) = runTest { ... }
+}
+```
+
+```kotlin
+// XP 계산 순수 함수 테스트
+class XpCalculatorTest {
+
+    @ParameterizedTest
+    @CsvSource(
+        "5.0, 20, true,  250",   // CR5, 크리티컬, 2배
+        "5.0, 15, false, 125",   // CR5, 명중, 기본
+        "1.0,  1, false,  18",   // CR1, 미스, 최소
+    )
+    fun `XP 계산 공식 검증`(cr: Float, d20: Int, isCritical: Boolean, expectedBase: Long) {
+        val xp = XpCalculator.calculate(cr, d20, isCritical, streakDays = 0, deadlineBonus = 1f)
+        assertThat(xp).isEqualTo(expectedBase)
+    }
+}
+```
+
+### Flow 테스트 (Turbine)
+
+```kotlin
+@Test
+fun `인박스 아이템 추가 시 UI 상태 즉시 반영`() = runTest {
+    val viewModel = InboxViewModel(...)
+
+    viewModel.uiState.test {
+        assertThat(awaitItem().items).isEmpty()
+
+        viewModel.onCaptureText("세금 신고")
+
+        val updated = awaitItem()
+        assertThat(updated.items).hasSize(1)
+        assertThat(updated.items.first().rawText).isEqualTo("세금 신고")
+
+        cancelAndIgnoreRemainingEvents()
+    }
+}
+```
+
+### 스크린샷 테스트 (Paparazzi — 에뮬레이터 불필요)
+
+```kotlin
+// QuestCardSnapshotTest.kt
+class QuestCardSnapshotTest {
+    @get:Rule val paparazzi = Paparazzi(
+        deviceConfig = DeviceConfig.PIXEL_6,
+        theme = "Theme.QuestLog"
+    )
+
+    @Test fun `QuestCard 일반 상태`() {
+        paparazzi.snapshot {
+            QuestLogTheme {
+                QuestCard(
+                    task = fakeTask(cr = 3f, title = "보고서 작성"),
+                    onComplete = {}
+                )
+            }
+        }
+    }
+
+    @Test fun `HPBar 위기 상태 (HP 25% 이하)`() {
+        paparazzi.snapshot {
+            QuestLogTheme {
+                HPBar(currentHp = 5, maxHp = 40)  // 12.5% — 빨간색 확인
+            }
+        }
+    }
+
+    @Test fun `D20DiceView 크리티컬 히트 (20)`() {
+        paparazzi.snapshot {
+            QuestLogTheme { D20DiceView(result = 20) }
+        }
+    }
+}
+```
+
+### Room 통합 테스트 (Robolectric — JVM)
+
+```kotlin
+@RunWith(RobolectricTestRunner::class)
+class CompletionDaoTest {
+
+    private lateinit var db: QuestLogDatabase
+    private lateinit var dao: CompletionDao
+
+    @Before fun setUp() {
+        db = Room.inMemoryDatabaseBuilder(
+            ApplicationProvider.getApplicationContext(),
+            QuestLogDatabase::class.java
+        ).allowMainThreadQueries().build()
+        dao = db.completionDao()
+    }
+
+    @Test fun `commitCompletion 중복 호출 시 두 번째는 false 반환`() = runTest {
+        val task = insertActiveTask()
+        val log = fakeCombatLog(taskId = task.id)
+        val update = fakeCharacterUpdate()
+
+        val first = dao.commitCompletion(task.id, "DONE", now, null, now, log, update)
+        val second = dao.commitCompletion(task.id, "DONE", now, null, now, log, update)
+
+        assertThat(first).isTrue()
+        assertThat(second).isFalse()   // 멱등성: 두 번째는 rowsAffected == 0
+    }
+
+    @After fun tearDown() = db.close()
+}
+```
+
+### 목표 커버리지 (CI 게이트)
+
+```
+UseCase (비즈니스 로직):  90%+  ← 핵심, CI 실패 기준
+ViewModel (상태 변화):    80%+
+Repository (DB 쿼리):     75%+
+Composable (스냅샷):      핵심 컴포넌트 100% (QuestCard, HPBar, D20DiceView, CrBadge)
+통합 플로우 E2E:          퀘스트 완료 플로우 1개만 (에뮬레이터)
 ```
 
 ---
 
-## 8.9 빌드 설정
+## 8.9 Hilt 모듈 구성
+
+### NetworkModule — kotlinx.serialization 컨버터 적용
+
+```kotlin
+// core/data/di/NetworkModule.kt
+@Module
+@InstallIn(SingletonComponent::class)
+object NetworkModule {
+
+    @Provides
+    @Singleton
+    fun provideJson(): Json = Json {
+        ignoreUnknownKeys = true   // API 응답에 새 필드 추가 시 앱 크래시 방지
+        isLenient = true
+        encodeDefaults = true
+    }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(): OkHttpClient = OkHttpClient.Builder()
+        .addInterceptor(HttpLoggingInterceptor().apply {
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+                    else HttpLoggingInterceptor.Level.NONE
+        })
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(60, TimeUnit.SECONDS)   // Claude API 응답 대기
+        .build()
+
+    @Provides
+    @Singleton
+    fun provideRetrofit(okHttpClient: OkHttpClient, json: Json): Retrofit =
+        Retrofit.Builder()
+            .baseUrl("https://api.anthropic.com/")
+            .client(okHttpClient)
+            // Gson 대신 kotlinx.serialization 컨버터
+            .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
+            .build()
+
+    @Provides
+    @Singleton
+    fun provideClaudeApiService(retrofit: Retrofit): ClaudeApiService =
+        retrofit.create(ClaudeApiService::class.java)
+}
+```
+
+### DatabaseModule
+
+```kotlin
+// core/data/di/DatabaseModule.kt
+@Module
+@InstallIn(SingletonComponent::class)
+object DatabaseModule {
+
+    @Provides
+    @Singleton
+    fun provideDatabase(@ApplicationContext context: Context): QuestLogDatabase =
+        Room.databaseBuilder(context, QuestLogDatabase::class.java, "questlog.db")
+            .addTypeConverter(Converters())   // @ProvidedTypeConverter
+            .addMigrations(MIGRATION_1_2)
+            .build()
+
+    @Provides fun provideTaskDao(db: QuestLogDatabase) = db.taskDao()
+    @Provides fun provideCharacterDao(db: QuestLogDatabase) = db.characterDao()
+    @Provides fun provideCombatLogDao(db: QuestLogDatabase) = db.combatLogDao()
+    @Provides fun provideCompletionDao(db: QuestLogDatabase) = db.completionDao()
+    @Provides fun provideEncounterLogDao(db: QuestLogDatabase) = db.encounterLogDao()
+    @Provides fun provideCharacterItemDao(db: QuestLogDatabase) = db.characterItemDao()
+    @Provides fun provideItemDao(db: QuestLogDatabase) = db.itemDao()
+    @Provides fun provideNpcDao(db: QuestLogDatabase) = db.npcDao()
+    @Provides fun provideWeeklyReviewDao(db: QuestLogDatabase) = db.weeklyReviewDao()
+    @Provides fun provideAchievementDao(db: QuestLogDatabase) = db.achievementDao()
+    @Provides fun provideInboxItemDao(db: QuestLogDatabase) = db.inboxItemDao()
+    @Provides fun provideProjectDao(db: QuestLogDatabase) = db.projectDao()
+}
+```
+
+---
+
+## 8.10 CI/CD — GitHub Actions
+
+### .github/workflows/ci.yml
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [ master, main ]
+  pull_request:
+    branches: [ master, main ]
+
+jobs:
+  test:
+    name: Unit Tests + Screenshot Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # 단위 테스트 (JVM — 빠름, 에뮬레이터 불필요)
+      - name: Run Unit Tests
+        run: ./gradlew testDebugUnitTest --stacktrace
+
+      # 스크린샷 테스트 (Paparazzi — JVM)
+      - name: Run Screenshot Tests
+        run: ./gradlew verifyPaparazziDebug --stacktrace
+
+      # 테스트 결과 업로드
+      - name: Upload Test Report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-report
+          path: app/build/reports/tests/
+
+      # Paparazzi diff 이미지 업로드 (스크린샷 불일치 시)
+      - name: Upload Paparazzi Failures
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paparazzi-failures
+          path: app/build/paparazzi/failures/
+
+  build:
+    name: Build Debug APK
+    runs-on: ubuntu-latest
+    needs: test   # 테스트 통과 후에만 빌드
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Build Debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      # APK를 GitHub Actions artifact로 업로드 (기기에 직접 설치 가능)
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: questlog-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 14   # 2주 보관
+```
+
+### 배포 방식 (혼자 사용)
+
+```
+개발 중:
+  ./gradlew installDebug     ← USB 연결 기기에 직접 설치
+  adb install app-debug.apk  ← APK 직접 설치
+
+CI 빌드 후:
+  GitHub Actions → Artifacts → questlog-debug-{sha}.apk 다운로드
+  → 기기에 설치 (개발자 옵션 + 알 수 없는 출처 허용)
+
+Play Store: v1.0 이후 필요 시 검토 (현재 불필요)
+```
+
+---
+
+## 8.10 빌드 설정
 
 ```kotlin
 // app/build.gradle.kts
