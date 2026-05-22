@@ -436,6 +436,230 @@ data class CharacterAchievementEntity(
 )
 ```
 
+### CharacterItemEntity (캐릭터-아이템 장착 상태)
+
+`items` 테이블이 인벤토리 전체 목록이라면, `character_items`는 현재 장착 상태를 관리하는 junction 테이블이다.
+아이템 미래 이전/공유(v2)를 위해 별도 테이블로 분리한다.
+
+```kotlin
+@Entity(
+    tableName = "character_items",
+    primaryKeys = ["characterId", "itemId"],
+    foreignKeys = [
+        ForeignKey(
+            entity = CharacterEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["characterId"],
+            onDelete = ForeignKey.CASCADE
+        ),
+        ForeignKey(
+            entity = ItemEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["itemId"],
+            onDelete = ForeignKey.CASCADE
+        )
+    ],
+    indices = [
+        Index("characterId"),
+        Index("itemId"),
+        Index("equippedSlot")
+    ]
+)
+data class CharacterItemEntity(
+    val characterId: String,
+    val itemId: String,
+
+    // 장착 상태
+    val isEquipped: Boolean = false,
+    val equippedSlot: EquipmentSlot? = null,  // null = 인벤토리에만 있음
+
+    // 획득 이력
+    val acquiredAt: Long = System.currentTimeMillis(),
+    val acquiredFromTaskId: String? = null,   // 드롭된 전투의 Task ID
+    val acquiredFromEncounterId: String? = null, // 랜덤 인카운터 ID
+
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+// EquipmentSlot enum
+enum class EquipmentSlot {
+    WEAPON,       // 주 무기 (공격 보너스)
+    ARMOR,        // 방어구 (HP 보너스, AC)
+    RING,         // 반지 (XP 배율 등 특수)
+    NECKLACE,     // 목걸이 (능력치 보너스)
+    MISC          // 소모품·기타 (인벤토리 전용)
+}
+```
+
+#### CharacterItemDao
+
+```kotlin
+@Dao
+interface CharacterItemDao {
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun addToInventory(item: CharacterItemEntity): Long
+
+    @Query("""
+        UPDATE character_items
+        SET isEquipped = :equipped, equippedSlot = :slot, updatedAt = :now
+        WHERE characterId = :characterId AND itemId = :itemId
+    """)
+    suspend fun setEquipped(
+        characterId: String, itemId: String,
+        equipped: Boolean, slot: EquipmentSlot?,
+        now: Long = System.currentTimeMillis()
+    )
+
+    // 같은 슬롯에 이미 장착된 아이템 해제 후 새 아이템 장착 (트랜잭션)
+    @Transaction
+    suspend fun equipItem(characterId: String, itemId: String, slot: EquipmentSlot) {
+        unequipSlot(characterId, slot.name)
+        setEquipped(characterId, itemId, true, slot)
+    }
+
+    @Query("""
+        UPDATE character_items
+        SET isEquipped = 0, equippedSlot = NULL, updatedAt = :now
+        WHERE characterId = :characterId AND equippedSlot = :slotName
+    """)
+    suspend fun unequipSlot(
+        characterId: String, slotName: String,
+        now: Long = System.currentTimeMillis()
+    )
+
+    @Query("""
+        SELECT ci.*, i.*
+        FROM character_items ci
+        INNER JOIN items i ON ci.itemId = i.id
+        WHERE ci.characterId = :characterId AND ci.isEquipped = 1
+    """)
+    fun getEquippedItems(characterId: String): Flow<List<CharacterItemWithDetail>>
+
+    @Query("""
+        SELECT ci.*, i.*
+        FROM character_items ci
+        INNER JOIN items i ON ci.itemId = i.id
+        WHERE ci.characterId = :characterId
+        ORDER BY ci.acquiredAt DESC
+    """)
+    fun getInventory(characterId: String): Flow<List<CharacterItemWithDetail>>
+
+    @Query("SELECT COUNT(*) FROM character_items WHERE characterId = :characterId")
+    fun getInventoryCount(characterId: String): Flow<Int>
+
+    @Query("DELETE FROM character_items WHERE characterId = :characterId AND itemId = :itemId")
+    suspend fun removeFromInventory(characterId: String, itemId: String)
+}
+
+// Room @Relation을 활용한 조인 결과
+data class CharacterItemWithDetail(
+    @Embedded val characterItem: CharacterItemEntity,
+    @Relation(
+        parentColumn = "itemId",
+        entityColumn = "id"
+    )
+    val item: ItemEntity
+)
+```
+
+---
+
+### EncounterLogEntity (랜덤 인카운터 기록)
+
+WorkManager가 하루 1-2회 생성하는 랜덤 이벤트의 발생·처리 내역을 저장한다.
+
+```kotlin
+@Entity(
+    tableName = "encounter_logs",
+    indices = [
+        Index("characterId"),
+        Index("encounteredAt"),
+        Index("status")
+    ]
+)
+data class EncounterLogEntity(
+    @PrimaryKey
+    val id: String = UUID.randomUUID().toString(),
+
+    val characterId: String,
+
+    // 인카운터 내용
+    val encounterType: EncounterType,  // BONUS_XP, ITEM_DROP, HP_HEAL, STREAK_TOKEN, FULL_HP_HEAL
+    val title: String,                 // "방랑 상인 출현!" 등
+    val description: String,           // 이벤트 설명 2문장
+    val sourceType: EncounterSource,   // LOCAL_TEMPLATE, CLAUDE_AI
+
+    // 보상
+    val xpBonus: Long = 0,
+    val hpHealed: Int = 0,
+    val streakTokenGiven: Int = 0,
+    val droppedItemId: String? = null, // FK → items.id (드롭 아이템)
+
+    // 상태
+    val status: EncounterStatus,       // PENDING (알림 표시됨), CLAIMED (보상 수령), EXPIRED (48h 경과)
+    val claimedAt: Long? = null,
+
+    val encounteredAt: Long = System.currentTimeMillis(),
+    val expiresAt: Long = System.currentTimeMillis() + 48 * 60 * 60 * 1000L  // 48시간 유효
+)
+
+enum class EncounterType {
+    BONUS_XP,        // XP 보너스
+    ITEM_DROP,       // 아이템 드롭
+    HP_HEAL,         // HP 부분 회복 (25%)
+    STREAK_TOKEN,    // 스트릭 보호 토큰 +1
+    FULL_HP_HEAL     // HP 전체 회복 (여관 무료 숙박)
+}
+
+enum class EncounterSource { LOCAL_TEMPLATE, CLAUDE_AI }
+
+enum class EncounterStatus { PENDING, CLAIMED, EXPIRED }
+```
+
+#### EncounterLogDao
+
+```kotlin
+@Dao
+interface EncounterLogDao {
+    @Insert
+    suspend fun insert(log: EncounterLogEntity): Long
+
+    @Query("""
+        SELECT * FROM encounter_logs
+        WHERE characterId = :characterId AND status = 'PENDING'
+        ORDER BY encounteredAt DESC
+    """)
+    fun getPendingEncounters(characterId: String): Flow<List<EncounterLogEntity>>
+
+    @Query("""
+        SELECT * FROM encounter_logs
+        WHERE characterId = :characterId
+        ORDER BY encounteredAt DESC
+        LIMIT :limit
+    """)
+    fun getRecentEncounters(characterId: String, limit: Int = 30): Flow<List<EncounterLogEntity>>
+
+    // 보상 수령: PENDING → CLAIMED (조건부, 중복 수령 방지)
+    @Query("""
+        UPDATE encounter_logs
+        SET status = 'CLAIMED', claimedAt = :now
+        WHERE id = :id AND status = 'PENDING'
+    """)
+    suspend fun claimEncounter(id: String, now: Long = System.currentTimeMillis()): Int
+
+    // 만료 처리: WorkManager가 주기적으로 실행
+    @Query("""
+        UPDATE encounter_logs
+        SET status = 'EXPIRED'
+        WHERE status = 'PENDING' AND expiresAt < :now
+    """)
+    suspend fun expireOldEncounters(now: Long = System.currentTimeMillis()): Int
+
+    @Query("SELECT COUNT(*) FROM encounter_logs WHERE characterId = :characterId AND status = 'PENDING'")
+    fun getPendingCount(characterId: String): Flow<Int>
+}
+```
+
 ---
 
 ## 5.3 DAO 인터페이스

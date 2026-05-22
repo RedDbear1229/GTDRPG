@@ -1,9 +1,122 @@
 # 07. Claude API 연동
 
+## 7.0 개인정보 보호 원칙 (Privacy-First)
+
+GTD 앱의 특성상 사용자의 할 일 제목, 메모, 주간 통계에는 건강·재정·업무·개인관계 등 민감 정보가 포함될 수 있다. Claude API는 제3자 서버로 데이터를 전송하므로, **AI 기능은 사용자의 명시적 동의 이후에만 활성화**된다.
+
+### 원칙 1: 기본값 OFF — 명시적 옵트인
+
+```kotlin
+// DataStore AppSettings 기본값
+object AppSettingsDefaults {
+    const val CLAUDE_AI_ENABLED = false          // 기본 비활성
+    const val AI_CONSENT_GIVEN = false           // 동의 전까지 API 호출 절대 불가
+    const val AI_CONSENT_GIVEN_AT = 0L
+}
+
+// ClaudeRepository: 동의 + 활성화 모두 확인
+suspend fun canCallApi(): Boolean {
+    return appSettings.aiConsentGiven && appSettings.claudeApiEnabled
+        && secureStorage.getApiKey() != null
+}
+```
+
+### 원칙 2: 동의 다이얼로그 — 기기 밖으로 전송되는 데이터 명시
+
+AI 기능 첫 사용 시(또는 설정 화면에서 토글 ON 시) 반드시 표시:
+
+```
+┌─────────────────────────────────────────┐
+│ 🤖 AI 내러티브 기능을 사용하시겠어요?      │
+├─────────────────────────────────────────┤
+│ 이 기능을 사용하면 아래 데이터가          │
+│ Anthropic 서버로 전송됩니다:            │
+│                                         │
+│ • 퀘스트 제목 (예: "보고서 작성하기")    │
+│ • 캐릭터 이름·레벨·클래스               │
+│ • 이번 주 완료 수·XP·스트릭 일수        │
+│                                         │
+│ ❌ 전송되지 않는 데이터:                │
+│ • 퀘스트 상세 메모·첨부 파일            │
+│ • NPC 이름·연락처 정보                  │
+│ • 계정 정보·이메일                      │
+│                                         │
+│ Anthropic 개인정보 처리방침:            │
+│ anthropic.com/privacy                   │
+│                                         │
+│ [동의하고 계속]        [사용 안 함]     │
+└─────────────────────────────────────────┘
+```
+
+### 원칙 3: 데이터 최소화 — 프롬프트에서 제외할 필드
+
+```kotlin
+object PromptSanitizer {
+    /**
+     * 프롬프트에 포함할 태스크 정보. 메모·첨부경로는 전송하지 않는다.
+     * 제목은 50자로 잘라 불필요한 상세 내용이 흘러나가지 않도록 한다.
+     */
+    fun sanitizeTask(task: Task): PromptTask = PromptTask(
+        title = task.title.take(50),      // 제목만, 50자 제한
+        lifeArea = task.lifeArea.name,    // 영역 레이블만
+        challengeRating = task.challengeRating,
+        monsterType = task.monsterType.name
+        // description, notes, attachmentPaths → 전송 제외
+        // delegatedTo (NPC 이름) → 전송 제외
+    )
+
+    fun sanitizeWeeklySummary(stats: WeeklyStats): PromptWeekly = PromptWeekly(
+        completedCount = stats.completedCount,
+        xpGained = stats.xpGained,
+        streakDays = stats.streakDays,
+        critCount = stats.critCount,
+        missCount = stats.missCount,
+        lifeAreaCounts = stats.lifeAreaCounts  // 개수만, 제목 없음
+        // unfinishedTitles → 전송 제외 (개수만 포함)
+    )
+}
+```
+
+### 원칙 4: 동의 없는 API 호출 차단 테스트
+
+```kotlin
+// ClaudeRepositoryTest.kt
+@Test
+fun `aiConsentGiven=false 이면 API 호출 없이 폴백 반환`() = runTest {
+    appSettings.setAiConsentGiven(false)
+    val result = repo.generateCombatNarrative(character, task, combatResult)
+    verify(exactly = 0) { apiService.generateMessage(any(), any()) }
+    assertThat(result).isNotEmpty()  // 로컬 폴백
+}
+
+@Test
+fun `claudeApiEnabled=false 이면 API 호출 없이 폴백 반환`() = runTest {
+    appSettings.setAiConsentGiven(true)
+    appSettings.setClaudeApiEnabled(false)
+    val result = repo.generateCombatNarrative(character, task, combatResult)
+    verify(exactly = 0) { apiService.generateMessage(any(), any()) }
+}
+```
+
+### 원칙 5: 로드맵 순서 — AI 연동 전에 프라이버시 완료
+
+```
+Phase 3 Week 7 (전투 시스템): ConsentDialog UI 구현 (아직 API 없음)
+Phase 5 Week 10 시작 전:
+  ✓ AppSettings.aiConsentGiven 필드 추가 완료
+  ✓ ConsentDialog → DataStore 저장 완료
+  ✓ PromptSanitizer 구현 + 단위 테스트 완료
+  ✓ "AI OFF 시 API 호출 없음" 통합 테스트 완료
+  → 이후에 ClaudeApiService 연동 시작
+```
+
+---
+
 ## 7.1 연동 개요
 
 Claude API는 QuestLog의 핵심 차별점인 **동적 스토리 생성**을 담당한다.
 모든 AI 기능은 선택적이며, API 미설정 또는 오프라인 시 로컬 템플릿으로 폴백한다.
+**사용자의 명시적 동의(7.0절) 없이는 어떤 API 호출도 발생하지 않는다.**
 
 ### 사용 모델
 
@@ -334,13 +447,16 @@ class ClaudeRepositoryImpl @Inject constructor(
         task: Task,
         combatResult: CombatResult
     ): String {
-        if (!appSettings.claudeApiEnabled) return getFallbackNarrative(task, combatResult)
+        // 동의 + 활성화 모두 확인 (7.0절 원칙 1)
+        if (!canCallApi()) return getFallbackNarrative(task, combatResult)
         
         val apiKey = secureStorage.getApiKey() 
             ?: return getFallbackNarrative(task, combatResult)
         
         return try {
-            val prompt = buildCombatNarrativePrompt(character, task, combatResult)
+            // PromptSanitizer로 민감 필드 제외 후 프롬프트 구성 (7.0절 원칙 3)
+            val sanitizedTask = PromptSanitizer.sanitizeTask(task)
+            val prompt = buildCombatNarrativePrompt(character, sanitizedTask, combatResult)
             val response = apiService.generateMessage(
                 apiKey = apiKey,
                 request = ClaudeMessageRequest(

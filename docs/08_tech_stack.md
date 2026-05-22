@@ -334,78 +334,215 @@ dependencies {
 
 ### CompleteTaskUseCase (핵심 게임 루프)
 
+#### 설계 원칙: 원자성 + 멱등성
+
+퀘스트 완료는 여러 상태(Task, Character XP/HP/Streak, CombatLog, Item)를 동시에 변경한다.
+더블탭, 재시도, 앱 크래시 등 중복 실행 시 XP/아이템 중복 지급이나 전투 기록 누락이 발생하지 않도록 두 가지 보호 장치를 적용한다.
+
+1. **상태 전이 가드**: Task가 `ACTIVE` 상태일 때만 진행 (이미 `DONE`이면 기존 CombatLog 반환)
+2. **단일 DB 트랜잭션**: Task 상태 변경 + CombatLog 삽입 + Character 업데이트를 하나의 `@Transaction`으로 묶음
+
 ```kotlin
+// data/local/dao/CompletionDao.kt
+@Dao
+interface CompletionDao {
+    /**
+     * 퀘스트 완료의 모든 DB 쓰기를 단일 트랜잭션으로 처리.
+     * ACTIVE 상태인 경우에만 상태를 DONE으로 전이하여 중복 실행을 방지한다.
+     */
+    @Transaction
+    suspend fun commitCompletion(
+        taskId: String,
+        newStatus: String,           // "DONE" 또는 "INBOX" (Miss 복귀)
+        completedAt: Long?,
+        actualMinutes: Int?,
+        updatedAt: Long,
+        combatLog: CombatLogEntity,
+        characterUpdate: CharacterSnapshotUpdate
+    ): Boolean {
+        // 조건부 상태 전이: ACTIVE가 아니면 0 rows affected → 중복 실행 감지
+        val rowsAffected = conditionalCompleteTask(
+            id = taskId,
+            newStatus = newStatus,
+            completedAt = completedAt,
+            actualMinutes = actualMinutes,
+            updatedAt = updatedAt
+        )
+        if (rowsAffected == 0) return false  // 이미 처리됨 (멱등성 보장)
+
+        insertCombatLog(combatLog)
+        updateCharacterSnapshot(characterUpdate)
+        return true
+    }
+
+    @Query("""
+        UPDATE tasks
+        SET status = :newStatus,
+            completedAt = :completedAt,
+            actualMinutes = :actualMinutes,
+            updatedAt = :updatedAt
+        WHERE id = :id AND status = 'ACTIVE'
+    """)
+    suspend fun conditionalCompleteTask(
+        id: String,
+        newStatus: String,
+        completedAt: Long?,
+        actualMinutes: Int?,
+        updatedAt: Long
+    ): Int  // SQLite rows affected (0 = 이미 처리됨)
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertCombatLog(log: CombatLogEntity): Long
+
+    @Query("""
+        UPDATE characters
+        SET currentXp = :xp, totalXpEarned = :totalXp,
+            level = :level,
+            currentHp = :hp,
+            streakDays = :streak, longestStreak = MAX(longestStreak, :streak),
+            lastActivityDate = :activityDate,
+            totalQuestsCompleted = totalQuestsCompleted + :questDelta,
+            totalCriticalHits = totalCriticalHits + :critDelta,
+            totalCriticalMisses = totalCriticalMisses + :missDelta,
+            updatedAt = :now
+        WHERE id = :characterId
+    """)
+    suspend fun updateCharacterSnapshot(update: CharacterSnapshotUpdate)
+}
+
+// 캐릭터 업데이트를 묶는 값 객체
+data class CharacterSnapshotUpdate(
+    val characterId: String,
+    val xp: Long, val totalXp: Long, val level: Int,
+    val hp: Int,
+    val streak: Int, val activityDate: Long,
+    val questDelta: Int,    // +1 완료, 0 미스
+    val critDelta: Int,     // +1 크리티컬, 0 otherwise
+    val missDelta: Int,     // +1 미스, 0 otherwise
+    val now: Long = System.currentTimeMillis()
+)
+```
+
+```kotlin
+// domain/usecase/CompleteTaskUseCase.kt
 class CompleteTaskUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
     private val characterRepository: CharacterRepository,
     private val combatRepository: CombatRepository,
     private val narrativeRepository: ClaudeRepository,
-    private val itemRepository: ItemRepository
+    private val itemRepository: ItemRepository,
+    private val completionDao: CompletionDao
 ) {
     suspend operator fun invoke(
         taskId: String,
         elapsedMinutes: Int? = null
     ): CompleteTaskResult {
-        
-        // 1. 태스크 조회
+        val now = System.currentTimeMillis()
+
+        // 1. 태스크 + 캐릭터 조회
         val task = taskRepository.getTaskById(taskId)
             ?: return CompleteTaskResult.Error("Task not found")
-        
         val character = characterRepository.getCharacterOnce()
             ?: return CompleteTaskResult.Error("No character")
-        
-        // 2. D20 전투 해결
+
+        // 2. 이미 완료된 경우 기존 전투 기록 반환 (멱등성)
+        if (task.status == TaskStatus.DONE) {
+            val existing = combatRepository.getCombatLogByTaskId(taskId)
+            if (existing != null) return CompleteTaskResult.AlreadyCompleted(existing)
+        }
+
+        // 3. D20 전투 해결 (순수 계산, DB 쓰기 없음)
         val combatResult = combatRepository.resolveCombat(task, character)
-        
-        // 3. 태스크 완료 처리
-        taskRepository.completeTask(taskId, elapsedMinutes)
-        
-        // 4. 결과에 따른 처리
+
+        // 4. 캐릭터 다음 상태 계산 (순수 함수)
+        val nextCharacter = when (combatResult) {
+            is CombatResult.Hit, is CombatResult.CriticalHit ->
+                character.applyHit(combatResult.xpGained)
+            is CombatResult.Miss, is CombatResult.CriticalMiss ->
+                character.applyMiss(combatResult.hpLost)
+        }
+
+        // 5. 단일 트랜잭션: Task 상태 + CombatLog + Character 업데이트
+        val combatLog = combatResult.toCombatLogEntity(taskId, character, now)
+        val (newTaskStatus, completedAt) = when (combatResult) {
+            is CombatResult.Hit, is CombatResult.CriticalHit ->
+                TaskStatus.DONE to now
+            is CombatResult.Miss, is CombatResult.CriticalMiss ->
+                TaskStatus.INBOX to null   // Miss: Inbox 복귀
+        }
+
+        val committed = completionDao.commitCompletion(
+            taskId = taskId,
+            newStatus = newTaskStatus.name,
+            completedAt = completedAt,
+            actualMinutes = elapsedMinutes,
+            updatedAt = now,
+            combatLog = combatLog,
+            characterUpdate = nextCharacter.toSnapshotUpdate(
+                questDelta = if (combatResult is CombatResult.Hit || combatResult is CombatResult.CriticalHit) 1 else 0,
+                critDelta = if (combatResult is CombatResult.CriticalHit) 1 else 0,
+                missDelta = if (combatResult is CombatResult.Miss || combatResult is CombatResult.CriticalMiss) 1 else 0
+            )
+        )
+
+        // 트랜잭션 충돌: 다른 스레드/탭이 먼저 완료한 경우
+        if (!committed) {
+            val existing = combatRepository.getCombatLogByTaskId(taskId)
+            if (existing != null) return CompleteTaskResult.AlreadyCompleted(existing)
+            return CompleteTaskResult.Error("Completion conflict — please retry")
+        }
+
+        // 6. 아이템 드롭 (트랜잭션 밖, 실패해도 완료는 보장됨)
+        val droppedItem = (combatResult as? CombatResult.CriticalHit)?.itemDrop?.let {
+            runCatching { itemRepository.addItemToInventory(it, character.id) }.getOrNull()
+        }
+
+        // 7. AI 내러티브 생성 (비동기, 결과를 기다리지 않음)
+        val narrative = runCatching {
+            when (combatResult) {
+                is CombatResult.Hit, is CombatResult.CriticalHit ->
+                    narrativeRepository.generateCombatNarrative(character, task, combatResult)
+                is CombatResult.Miss, is CombatResult.CriticalMiss ->
+                    narrativeRepository.generateMissNarrative(character, task, combatResult)
+            }
+        }.getOrElse { narrativeRepository.getFallback(combatResult) }
+
         return when (combatResult) {
-            is CombatResult.Hit, is CombatResult.CriticalHit -> {
-                // XP 획득
-                val xpResult = characterRepository.gainXP(combatResult.xpGained)
-                
-                // 아이템 드롭 처리
-                val droppedItem = combatResult.itemDrop?.let {
-                    itemRepository.addItemToInventory(it, character.id)
-                }
-                
-                // 스트릭 업데이트
-                characterRepository.updateStreak(completed = true)
-                
-                // AI 내러티브 생성 (비동기, 결과 기다리지 않음)
-                val narrative = narrativeRepository.generateCombatNarrative(
-                    character, task, combatResult
-                )
-                
+            is CombatResult.Hit, is CombatResult.CriticalHit ->
                 CompleteTaskResult.Success(
                     combatResult = combatResult,
-                    levelUpResult = xpResult,
+                    levelUpResult = nextCharacter.levelUpResult,
                     droppedItem = droppedItem,
                     narrative = narrative
                 )
-            }
-            
-            is CombatResult.Miss, is CombatResult.CriticalMiss -> {
-                // HP 손실
-                characterRepository.takeDamage(combatResult.hpLost)
-                
-                // 태스크 Inbox로 복귀
-                taskRepository.returnToInbox(taskId)
-                
-                val narrative = narrativeRepository.generateMissNarrative(
-                    character, task, combatResult
-                )
-                
+            is CombatResult.Miss, is CombatResult.CriticalMiss ->
                 CompleteTaskResult.Failed(
                     combatResult = combatResult,
                     narrative = narrative
                 )
-            }
         }
     }
 }
+```
+
+#### 멱등성 보장 흐름 요약
+
+```
+사용자 탭 (1회 또는 중복)
+    ↓
+task.status == ACTIVE? → NO  → 기존 CombatLog 반환 (AlreadyCompleted)
+    ↓ YES
+D20 전투 계산 (메모리, DB 없음)
+    ↓
+commitCompletion() — 단일 @Transaction
+    ├─ UPDATE tasks … WHERE status='ACTIVE'  → rowsAffected
+    │    rowsAffected == 0 → 다른 스레드가 먼저 처리 → AlreadyCompleted
+    ├─ INSERT combat_logs (IGNORE 중복)
+    └─ UPDATE characters (단일 UPDATE)
+    ↓
+아이템 드롭 (트랜잭션 밖, 실패해도 완료 롤백 없음)
+    ↓
+AI 내러티브 (비동기, 실패 시 폴백)
 ```
 
 ---
