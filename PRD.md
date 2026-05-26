@@ -74,7 +74,7 @@
 
 | 단계 | 기능 | 화면 |
 |------|------|------|
-| Capture | 음성/텍스트/위젯/공유로 Inbox에 즉시 캡처 | InboxScreen, QuickCaptureSheet |
+| Capture | 텍스트/위젯/공유로 Inbox에 즉시 캡처 *(음성/STT는 Phase 4 F4.5 — F4.0 동의 인프라 선행)* | InboxScreen, QuickCaptureSheet |
 | Clarify | 6단계 결정트리(행동 가능? 2분 이내? 위임?)로 분류 | ClarifySheet |
 | Organize | Task/Project/Someday/Reference/Waiting/Delete 자동 분류 | QuestBoard (칸반) |
 | Reflect | 일일/주간/월간 리뷰 + 통계 | JournalScreen, WeeklyReviewScreen |
@@ -143,6 +143,18 @@
 - Claude AI가 DM의 목소리로 한 주 요약 + 다음 주 조언
 - 완료 시 +200 XP
 
+### 3.9 Memory of the Day (솔로 RPG 회고)
+
+- **컨셉**: 하루 1회, 그날 가장 의미 있었던 완료 1개를 골라 짧은 메모(≤500자)를 남기는 일기 모드
+- **하루 1엔트리 강제** — DB 레벨 `entryDate UNIQUE` 제약. 다음 날이 되면 "어제의 기억"은 잠금
+- **즉시 정산 부담 없음** — 퀘스트 완료 직후가 아닌, 사용자가 원할 때 (저녁/하루 끝) 작성
+- **5상태 UI**: NoCompletions / Selecting / Writing / Saved / Expired
+- **선택적 Claude AI 윤색** — 동의 + 활성화 시에만, 4종 톤(StrongHit/WeakHit/Miss/None) 분기. 원본/윤색본 토글 가능
+- **Weekly Review 통합** — 이번 주 7일 메모 미니카드 표시
+- **리마인더**: 기본 21:00, 오늘 완료 ≥1 AND 미작성 시에만 알림 (스팸 방지)
+
+> 솔로 RPG 패러다임(Ironsworn/Mythic GME) 연구 후 "즉시 정산" 대신 "지연 정산 — 하루 1회" 채택. 글쓰기 부담 최소화 + 회고 자연 유도.
+
 ---
 
 ## 4. 향후 기능 목록 (Phase 2+)
@@ -152,7 +164,7 @@
 ### v1.5 (안정화)
 
 - [ ] Firebase Crashlytics (개인 사용도 크래시 로그 필요)
-- [ ] 위젯 (Inbox 빠른 캡처 + 오늘 마감 표시)
+- [ ] 위젯 고도화 — Glance API 마이그레이션 / 인라인 캡처(RemoteViews 텍스트 입력) / 오늘 마감 카운트 표시 *(v1 위젯은 탭→앱 캡처 시트 오픈만 지원)*
 - [ ] 다크/라이트 테마 토글 (현재는 다크만)
 
 ### v2.0 (확장)
@@ -236,54 +248,43 @@
 
 ---
 
-## 6. 데이터 모델 (주요 엔티티)
+## 6. 데이터 모델 (개요)
 
-> 전체 스키마 정의: `docs/05_data_model.md` (12 엔티티 + DAO + Migration)
+> **단일 진실 공급원 (SSOT)**: `docs/05_data_model.md`
+> - §5.1.1 — 현재 구현 (Room v2, 3 엔티티 — F1.1)
+> - §5.1.2 — 계획 최종 (Room v12, 15 엔티티 — F6.1 완료 시점)
+> - §5.6.1 — 마이그레이션 SSOT (v2가 fresh install 첫 활성 스키마, 수동 마이그레이션은 v3→v4 / v6→v7만)
+> - §5.6.4 — 현재 v2 DatabaseModule (코드와 1:1 일치)
+> - §5.6.5 — 계획 v12 DatabaseModule 최종 형태
+>
+> PRD는 엔티티 목록·필드·관계를 직접 복제하지 않는다. 변경 시 SSOT 한 곳만 수정하여 drift 방지.
 
-### 6.1 엔티티 관계도
+### 6.1 엔티티 그룹 (Phase별)
 
-```
-CharacterEntity (1) ───── (N) CharacterItemEntity (N) ───── (1) ItemEntity
-       │                              │
-       │                              │ acquiredFromTaskId
-       │                              ↓
-       │                         TaskEntity (N) ─── (1) ProjectEntity
-       │                              │
-       │                              │ taskId
-       │                              ↓
-       └─────── characterId ──── CombatLogEntity
-       │
-       ├─────── characterId ──── EncounterLogEntity
-       ├─────── characterId ──── WeeklyReviewEntity
-       └─────── characterId ──── CharacterAchievementEntity (N) ─── (1) AchievementEntity
+| Phase | Room ver | 신규 엔티티 | 비고 |
+|-------|---------|------------|------|
+| F1.1 | **v2** (구현됨) | `InboxItem`, `Task`, `Project` | 캡처·명료화 — fresh install 첫 활성 스키마 |
+| F2.1 | v3 | `Character` | 캐릭터 코어 |
+| F3.1 | v4 | `CombatLog` | D20 전투 (+ `TaskEntity` 컬럼 추가) |
+| F4.1 | v5 | `Item`, `CharacterItem` | 인벤토리 |
+| F4.2 | v6 | `Npc` | 협력자 |
+| F4.4 | v7 | `EncounterLog`, `XpAward` | 랜덤 인카운터 + 보상 원장 |
+| F4.0 | v8 | `ConsentRecord` | 프라이버시 동의 이력 |
+| F5.x | v9 ~ v11 | `WeeklyReview`, `Achievement`, `CharacterAchievement` | 주간 리뷰·업적 |
+| F6.1 | v12 | `MemoryEntry` | 하루 1엔트리, `entryDate UNIQUE` |
 
-InboxItemEntity ─── clarifiedTaskId ──→ TaskEntity
-NpcEntity ─── id ──→ TaskEntity.delegatedTo
-```
+**현재 구현된 엔티티 3개 (v2)**, **계획 최종 15개 (v12)**. 상세 스키마·DAO·FK 관계는 `docs/05_data_model.md §5.6.1` 참조.
 
-### 6.2 핵심 엔티티 요약
+### 6.2 데이터 무결성 계약 (핵심 5개)
 
-| Entity | 역할 | 핵심 필드 |
-|--------|------|----------|
-| **CharacterEntity** | 사용자 캐릭터 (단일 인스턴스) | classType, level, currentXp, maxHp/currentHp, 6 ability scores, streakDays |
-| **InboxItemEntity** | 명료화 전 원시 캡처 | rawText, audioPath, source, isClarified |
-| **TaskEntity** | 명료화 완료된 퀘스트 | status (INBOX/ACTIVE/WAITING/DONE), challengeRating, monsterType, dueDate |
-| **ProjectEntity** | 여러 Task의 묶음 (캠페인) | totalTaskCount, completedTaskCount, isMilestone |
-| **CombatLogEntity** | 전투 기록 (불변 로그) | d20Result, isHit, isCriticalHit, totalXPGained, hpLost, narrativeText |
-| **CharacterItemEntity** | 캐릭터-아이템 장착 상태 (junction) | isEquipped, equippedSlot, acquiredFromTaskId |
-| **ItemEntity** | 아이템 카탈로그 | itemType, rarity, slot, attackBonus, xpMultiplier |
-| **NpcEntity** | 협력자/연락처 | estimatedClass, delegationSuccessRate, charismaModifier |
-| **EncounterLogEntity** | 랜덤 인카운터 기록 | encounterType, status (PENDING/CLAIMED/EXPIRED), expiresAt |
-| **WeeklyReviewEntity** | 주간 리뷰 기록 | weekNumber, 6 step booleans, aiSummary |
-| **AchievementEntity** | 업적 정의 (하드코딩) | key, condition (JSON), xpReward |
+코드/문서 어디서든 위반 시 PR 리뷰의 최우선 차단 사유:
 
-### 6.3 데이터 무결성 규칙
-
-1. **Task 완료는 원자적** — `CompletionDao.commitCompletion()` 단일 `@Transaction`
-2. **CombatLog는 불변** — 한번 작성된 전투 기록은 수정 금지 (`OnConflictStrategy.IGNORE`)
-3. **상태 전이 가드** — `WHERE status='ACTIVE'` 조건부 UPDATE로 중복 처리 차단
+1. **Task 완료는 원자적** — `CompletionDao.commitCompletion()` 단일 `@Transaction` (CLAUDE.md "원자성 계약")
+2. **CombatLog는 불변** — `OnConflictStrategy.IGNORE`로 재실행 시 중복 INSERT 차단
+3. **상태 전이 가드** — `WHERE status='ACTIVE'` 조건부 UPDATE, 0 rows면 `AlreadyCompleted` 반환
 4. **인카운터 보상 멱등성** — `PENDING → CLAIMED` 조건부 UPDATE로 중복 수령 차단
-5. **소프트 삭제** — Task는 `status='DELETED'`로 마킹, 물리 삭제 안 함 (저널 보존)
+5. **MemoryEntry 하루 1엔트리** — `entryDate UNIQUE` + `OnConflictStrategy.ABORT`. UPSERT/REPLACE 금지 (기존 메모 손실)
+6. **소프트 삭제** — Task는 `status='DELETED'` 마킹, 물리 삭제 금지 (저널 보존)
 
 ---
 
@@ -359,8 +360,10 @@ suspend fun canCallApi(): Boolean =
 #### GTD MVP (Phase 1)
 - [ ] Inbox 항목 추가 → Clarify → QuestBoard 배치 → 완료까지 전체 플로우 작동
 - [ ] 앱 재시작 후 데이터 유지 (Room 영속화 확인)
-- [ ] 음성 입력 → STT 변환 → Inbox 저장 작동
-- [ ] 위젯에서 Inbox에 항목 추가 가능
+- [ ] **위젯 설치 검증** — 홈 화면 위젯 추가 가능, 위젯 탭 시 앱 캡처 시트가 즉시 열리고 입력 → Inbox 저장 동작 (`InboxWidgetProvider` + `EXTRA_OPEN_CAPTURE` PendingIntent 경로)
+- [ ] 공유 시트 캡처 작동 (`ACTION_SEND` 텍스트 → Inbox 즉시 저장)
+
+> ⚠️ 음성 입력(STT)·`RECORD_AUDIO`는 Phase 1 범위 밖이다. F4.0 프라이버시 동의 인프라 → F4.5 STT 순으로만 진입한다 (`IMPLEMENTATION_PLAN.md` F1.2 / F4.5, CLAUDE.md 컴팩션 보존 항목 #3).
 
 #### 캐릭터 시스템 (Phase 2)
 - [ ] 12 클래스 모두 선택 가능, 클래스 퀴즈 작동
@@ -442,11 +445,13 @@ suspend fun canCallApi(): Boolean =
 - ❌ **마법 주문 (Spell) 카드** — 추상화된 능력만
 - ❌ **던전 맵 / 시각적 던전** — 텍스트 내러티브만
 - ❌ **전체 D&D 5e 룰북** — GTD에 필요한 부분만 차용
+- ❌ **전면 솔로 RPG 모드** (Mythic GME / Ironsworn 전체 룰셋) — Memory of the Day(§3.9) 1엔트리/일 형태로만 흡수. Chaos Factor, Fate Chart, Move 목록 등은 v1.0 범위 밖
+- ❌ **하루 다중 메모 / 자유 일기** — UNIQUE 제약으로 하루 1엔트리만. 자유 일기를 원하면 외부 앱 사용
 
 ### 9.7 기술
 
 - ❌ **반응형/멀티 윈도우 UI** — 단일 폰 세로 레이아웃
-- ❌ **위젯 인터랙티브 컨트롤** — 단순 캡처와 표시만 (Glance 사용 안 함, v1.5)
+- ❌ **위젯 인터랙티브 컨트롤** — v1은 RemoteViews 탭→앱 캡처 시트 오픈만 지원. 위젯 안 인라인 입력 / Glance API / 오늘 마감 카운트 표시는 v1.5
 - ❌ **Compose Multiplatform UI** — Android Compose만
 - ❌ **GraphQL** — Retrofit REST만
 - ❌ **WebView 기반 화면** — 모두 네이티브 Compose
@@ -461,11 +466,11 @@ suspend fun canCallApi(): Boolean =
 | `docs/02_screens.md` | 27개 화면/시트 ASCII 목업 + 인터랙션 명세 |
 | `docs/03_gtd_system.md` | ClarifySheet 결정트리, CR 자동 계산 알고리즘, Context 태그 |
 | `docs/04_game_mechanics.md` | D20 전투, XP 공식, HP, 12 클래스 능력, 아이템 카탈로그, 몬스터 표 |
-| `docs/05_data_model.md` | 12 Room 엔티티 + DAO + TypeConverter + Migration |
+| `docs/05_data_model.md` | 15 Room 엔티티 (F6.1 완료 시점) + DAO + TypeConverter + Migration SSOT (§5.6.1) |
 | `docs/06_gtd_rpg_mapping.md` | GTD ↔ D&D 25행 매핑 테이블, 3 플레이 기둥, 클래스 궁합 |
 | `docs/07_claude_api.md` | **7.0 개인정보 보호 원칙**, 7가지 AI 시나리오, 폴백 템플릿 |
 | `docs/08_tech_stack.md` | 아키텍처, 모듈, 의존성, **8.5 원자적 완료 처리**, NetworkModule, CI/CD |
-| `docs/09_roadmap.md` | 6-Phase 15주 개발 계획 + 주차별 체크리스트 |
+| `docs/09_roadmap.md` | 7-Phase 325h 개발 계획 (Memory of the Day 포함, Play Store 출시 없음) — 단일 진실은 IMPLEMENTATION_PLAN.md 요약표 |
 | `docs/10_design_system.md` | 컬러 팔레트, 타이포그래피, 핵심 Composable, 애니메이션, 사운드 |
 
 ## 부록 B — 의사결정 이력
@@ -477,3 +482,4 @@ suspend fun canCallApi(): Boolean =
 | 2026-05 | Codex 적대적 리뷰 #1 | 3대 이슈 (원자성, 프라이버시, 누락 엔티티) 수정 |
 | 2026-05 | 기술 스택 확정 | Gson 제거 → kotlinx.serialization 단독, JUnit 5, Paparazzi 추가 |
 | 2026-05 | 배포 범위 | Play Store 미출시, GitHub Actions APK + ADB sideload |
+| 2026-05-23 | Phase 6 Memory of the Day 신설 | 솔로 RPG 패러다임 연구 후 "즉시 정산" 대신 "하루 1엔트리 지연 정산" 채택. 전면 솔로 RPG 모드는 §9.6에 제외. Phase 6(베타+배포) → Phase 7로 시프트, 총 290h → 325h |

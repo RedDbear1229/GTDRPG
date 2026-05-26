@@ -27,11 +27,12 @@
 |------|----------|---------|
 | 앱 내 FAB | QuickCaptureSheet | P0 |
 | 텍스트 입력 | TextField + 즉시 저장 | P0 |
-| 음성 입력 | Android SpeechRecognizer API | P0 |
+| 음성 입력 | Android SpeechRecognizer API | **P4 (F4.5)** — F4.0 동의 인프라 선행 필수, Phase 1 범위 밖 |
 | 사진 첨부 | CameraX + 갤러리 선택 | P1 |
-| 홈화면 위젯 | Glance Widget API | P2 |
+| 홈화면 위젯 (탭→앱 캡처) | `InboxWidgetProvider` RemoteViews + PendingIntent(`EXTRA_OPEN_CAPTURE`) | **P0 (v1 출시 범위)** |
+| 공유 시트 연동 | Share Intent 수신 (`ACTION_SEND` 텍스트 → 즉시 Inbox 저장) | **P0 (v1 출시 범위)** |
 | 알림에서 수집 | Notification Action | P2 |
-| 공유 시트 연동 | Share Intent 수신 | P2 |
+| 위젯 인라인 캡처 / Glance API / 오늘 마감 카운트 | Glance Widget API 마이그레이션 | P2 (v1.5) |
 
 ### QuickCaptureSheet 동작
 ```
@@ -48,8 +49,8 @@
 data class InboxItem(
     val id: String,
     val rawText: String,           // 원시 입력 텍스트
-    val audioPath: String?,        // 음성 파일 경로 (STT 전 원본)
-    val transcribedText: String?,  // STT 변환 결과
+    val audioPath: String?,        // 음성 파일 경로 (STT 전 원본) — Phase 4 F4.5 에서 사용, Phase 1 은 항상 null
+    val transcribedText: String?,  // STT 변환 결과 — Phase 4 F4.5 에서 사용, Phase 1 은 항상 null
     val imagePaths: List<String>,  // 첨부 사진 목록
     val capturedAt: Long,
     val source: CaptureSource,     // APP, WIDGET, SHARE, NOTIFICATION

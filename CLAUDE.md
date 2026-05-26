@@ -87,11 +87,13 @@ com.questlog/
 - ❌ **상태 가드 없이 UPDATE** — `WHERE status='ACTIVE'` 조건 필수, 0 rows면 `AlreadyCompleted` 반환
 - ❌ **CombatLog 수정** — 한번 INSERT된 전투 기록은 불변 (`OnConflictStrategy.IGNORE`)
 - ❌ **Entity 변경 시 마이그레이션 누락** — `app/schemas/` JSON 차이를 보고 `MIGRATION_N_M` 작성
+- ❌ **`MemoryEntryEntity` `entryDate UNIQUE` 우회** — 하루 1엔트리는 DB 레벨 제약. UseCase에서 `LocalDate.now()`를 트랜잭션 시작 시점에 캐시하여 자정 race 차단. 충돌 시 사용자에게 명확한 메시지 표시
 
 ### 프라이버시
 - ❌ **`canCallApi()` 확인 없이 Claude API 호출** — 동의 + 활성화 이중 확인 필수
 - ❌ **`PromptSanitizer` 거치지 않고 프롬프트 전송** — 메모/첨부/NPC 이름은 항상 제외
 - ❌ **API Key를 평문 SharedPreferences에 저장** — 반드시 `EncryptedSharedPreferences`
+- ❌ **Memory 윤색 호출 시 `body` 외 필드 전송** — `taskTitleSnapshot`, `outcomeType`, `entryDate`, `characterId` 모두 제외. Sanitizer가 본문만 통과시키도록 보장
 
 ### 기술 스택
 - ❌ **Gson 사용** — `kotlinx.serialization` 단독 (`@Serializable` 어노테이션 필수)
@@ -125,5 +127,6 @@ com.questlog/
 4. **확장 경계**: Domain 레이어는 순수 Kotlin (Android 무의존) — 미래 KMP iOS 확장의 유일한 통로
 5. **스택 확정 사항**: Kotlin 2.1, Compose BOM 2024.12, Hilt 2.53, Room 2.6, kotlinx.serialization 단독(Gson 금지), JUnit 5(JUnit 4 금지), MockK(Mockito 금지), Paparazzi 스크린샷 테스트, GitHub Actions CI
 6. **DoD (Definition of Done)**: 단위 테스트 90%+ (UseCase) / 80%+ (ViewModel) / 75%+ (Repository), Paparazzi 핵심 컴포넌트 100%, 실기기 30분 무크래시
-7. **Non-Goals**: Play Store 출시·다중 사용자·자체 백엔드·다국어·iOS — v1.0 범위 밖. 사용자가 요청해도 PRD §9 확인 후 재논의
+7. **Non-Goals**: Play Store 출시·다중 사용자·자체 백엔드·다국어·iOS·전면 솔로 RPG 모드 — v1.0 범위 밖. 사용자가 요청해도 PRD §9 확인 후 재논의
 8. **의사결정 이력**: Codex 적대적 리뷰(2026-05)로 원자성/프라이버시/누락 엔티티 3건 수정 완료 — 같은 실수 반복 금지
+9. **Memory of the Day 계약** (Phase 6, 2026-05-23): 솔로 RPG 패러다임을 "하루 1엔트리" 형태로만 흡수. `MemoryEntryEntity.entryDate UNIQUE` + 저장 시점 local tz 고정 + 자정 경계 트랜잭션 race 차단. Claude 윤색은 F4.0 동의 + F5 API + PromptSanitizer 통과 후에만(`body`만 전송). 전면 솔로 RPG 모드(Mythic GME, Ironsworn 전체)는 PRD §9.6 제외 항목 — 요청 와도 거부

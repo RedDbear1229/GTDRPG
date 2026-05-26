@@ -1051,6 +1051,8 @@ object NetworkModule {
 
 ### DatabaseModule
 
+> 🔴 **Room 부트스트랩 계약** (docs/05_data_model.md §5.6.1 SSOT): F0.3은 `QuestLogDatabase` 파일 스켈레톤만 두고 `@Database` 어노테이션을 비워둔다. F1.1에서 `@Database(version = 2)`로 처음 활성화하며, **이때 `MIGRATION_1_2` / `AutoMigration(1, 2)`는 작성하지 않는다** — v1은 어떤 디바이스에도 persisted된 적 없는 의미적 placeholder이기 때문. 아래 예제의 `.addMigrations(...)` 호출은 §5.6.1·§5.6.4에 등재된 수동 마이그레이션(`MIGRATION_3_4`, `MIGRATION_6_7`)만 포함해야 한다.
+
 ```kotlin
 // core/data/di/DatabaseModule.kt
 @Module
@@ -1059,26 +1061,37 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): QuestLogDatabase =
+    fun provideDatabase(
+        @ApplicationContext context: Context,
+        converters: Converters,                        // @ProvidedTypeConverter (Hilt 주입)
+    ): QuestLogDatabase =
         Room.databaseBuilder(context, QuestLogDatabase::class.java, "questlog.db")
-            .addTypeConverter(Converters())   // @ProvidedTypeConverter
-            .addMigrations(MIGRATION_1_2)
+            .addTypeConverter(converters)
+            // ⛔ MIGRATION_1_2 / AutoMigration(1, 2) 금지 — v1은 의미적 placeholder
+            //    (docs/05_data_model.md §5.6.1 v1 row 참조)
+            // ✅ 수동 마이그레이션만 등록. AutoMigration은 @Database(autoMigrations=...)에서 선언.
+            .addMigrations(MIGRATION_3_4, MIGRATION_6_7)
             .build()
 
+    @Provides fun provideInboxItemDao(db: QuestLogDatabase) = db.inboxItemDao()
     @Provides fun provideTaskDao(db: QuestLogDatabase) = db.taskDao()
+    @Provides fun provideProjectDao(db: QuestLogDatabase) = db.projectDao()
     @Provides fun provideCharacterDao(db: QuestLogDatabase) = db.characterDao()
     @Provides fun provideCombatLogDao(db: QuestLogDatabase) = db.combatLogDao()
-    @Provides fun provideCompletionDao(db: QuestLogDatabase) = db.completionDao()
-    @Provides fun provideEncounterLogDao(db: QuestLogDatabase) = db.encounterLogDao()
-    @Provides fun provideCharacterItemDao(db: QuestLogDatabase) = db.characterItemDao()
+    @Provides fun provideCompletionDao(db: QuestLogDatabase) = db.completionDao()          // F3.1 원자성
     @Provides fun provideItemDao(db: QuestLogDatabase) = db.itemDao()
+    @Provides fun provideCharacterItemDao(db: QuestLogDatabase) = db.characterItemDao()
     @Provides fun provideNpcDao(db: QuestLogDatabase) = db.npcDao()
+    @Provides fun provideEncounterLogDao(db: QuestLogDatabase) = db.encounterLogDao()
+    @Provides fun provideClaimEncounterRewardDao(db: QuestLogDatabase) = db.claimEncounterRewardDao()  // F4.4 원자성
+    @Provides fun provideConsentRecordDao(db: QuestLogDatabase) = db.consentRecordDao()    // F4.0
     @Provides fun provideWeeklyReviewDao(db: QuestLogDatabase) = db.weeklyReviewDao()
     @Provides fun provideAchievementDao(db: QuestLogDatabase) = db.achievementDao()
-    @Provides fun provideInboxItemDao(db: QuestLogDatabase) = db.inboxItemDao()
-    @Provides fun provideProjectDao(db: QuestLogDatabase) = db.projectDao()
+    @Provides fun provideMemoryDao(db: QuestLogDatabase) = db.memoryDao()                  // F6.1
 }
 ```
+
+> **Phase-by-phase 등록 순서**: 위 예제는 v12 (F6.1 완료) 시점의 최종 형태. 각 phase 진행 시점에는 해당 phase까지의 DAO만 등록하고, F1.1 시점에는 `addMigrations(...)` 인자를 비워둔다 (v3 → v4 의 `MIGRATION_3_4`는 F3.1에서 추가).
 
 ---
 
