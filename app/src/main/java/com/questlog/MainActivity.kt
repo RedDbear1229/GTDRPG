@@ -30,18 +30,24 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.runtime.collectAsState
+import com.questlog.core.data.datastore.OnboardingPreferences
 import com.questlog.core.ui.theme.QuestLogTheme
 import com.questlog.feature.inbox.InboxScreen
 import com.questlog.feature.inbox.InboxViewModel
 import com.questlog.feature.inbox.widget.InboxWidgetProvider
 import com.questlog.feature.journal.JournalScreen
+import com.questlog.feature.onboarding.OnboardingScreen
 import com.questlog.feature.questboard.ProjectDetailScreen
 import com.questlog.feature.questboard.QuestBoardScreen
 import com.questlog.feature.questboard.TaskDetailScreen
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject lateinit var onboardingPreferences: OnboardingPreferences
 
     private var pendingShareText by mutableStateOf<String?>(null)
     private var pendingOpenCapture by mutableStateOf(false)
@@ -52,12 +58,17 @@ class MainActivity : ComponentActivity() {
         absorbIntent(intent)
         setContent {
             QuestLogTheme {
-                QuestLogRoot(
-                    pendingShareText = pendingShareText,
-                    onShareConsumed = { pendingShareText = null },
-                    pendingOpenCapture = pendingOpenCapture,
-                    onOpenCaptureConsumed = { pendingOpenCapture = false },
-                )
+                val onboardingCompleted by onboardingPreferences.isCompleted.collectAsState(initial = null)
+                when (onboardingCompleted) {
+                    null -> Unit  // 로딩 중 — 빈 화면 (SplashScreen API 로 대체 예정)
+                    false -> OnboardingScreen(onCompleted = { /* recompose via flow */ })
+                    true -> QuestLogRoot(
+                        pendingShareText = pendingShareText,
+                        onShareConsumed = { pendingShareText = null },
+                        pendingOpenCapture = pendingOpenCapture,
+                        onOpenCaptureConsumed = { pendingOpenCapture = false },
+                    )
+                }
             }
         }
     }
