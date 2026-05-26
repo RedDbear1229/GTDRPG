@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Inbox
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Map
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
@@ -33,6 +34,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.compose.runtime.collectAsState
 import com.questlog.core.data.datastore.OnboardingPreferences
 import com.questlog.core.ui.theme.QuestLogTheme
+import com.questlog.feature.character.CharacterSheetScreen
+import com.questlog.feature.character.LevelUpScreen
 import com.questlog.feature.inbox.InboxScreen
 import com.questlog.feature.inbox.InboxViewModel
 import com.questlog.feature.inbox.widget.InboxWidgetProvider
@@ -97,6 +100,8 @@ private object Routes {
     const val INBOX = "inbox"
     const val QUEST_BOARD = "questboard"
     const val JOURNAL = "journal"
+    const val CHARACTER = "character"
+    const val LEVEL_UP = "level_up"
     const val PROJECT_DETAIL = "project/{projectId}"
     const val TASK_DETAIL = "task/{taskId}"
     fun project(id: String) = "project/$id"
@@ -174,6 +179,20 @@ private fun QuestLogRoot(
                     onBack = { navController.popBackStack() },
                 )
             }
+            composable(Routes.CHARACTER) {
+                CharacterSheetScreen(
+                    onLevelUp = {
+                        navController.navigate(Routes.LEVEL_UP) {
+                            launchSingleTop = true
+                        }
+                    },
+                )
+            }
+            composable(Routes.LEVEL_UP) {
+                LevelUpScreen(
+                    onContinue = { navController.popBackStack() },
+                )
+            }
         }
     }
 }
@@ -218,6 +237,18 @@ private fun BottomBar(navController: NavHostController) {
             },
             icon = { Icon(Icons.Outlined.AutoStories, contentDescription = null) },
             label = { Text("저널") },
+        )
+        NavigationBarItem(
+            selected = currentRoute == Routes.CHARACTER,
+            onClick = {
+                navController.navigate(Routes.CHARACTER) {
+                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                    launchSingleTop = true
+                    restoreState = true
+                }
+            },
+            icon = { Icon(Icons.Outlined.Person, contentDescription = null) },
+            label = { Text("캐릭터") },
         )
     }
 }
