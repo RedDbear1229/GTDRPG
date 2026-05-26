@@ -40,6 +40,7 @@ data class QuestBoardUiState(
     val filters: QuestBoardFilters = QuestBoardFilters(),
     val isLoading: Boolean = true,
     val error: String? = null,
+    val pendingCombatTaskId: String? = null,  // null 이면 시트 닫힘
 )
 
 data class ProjectSummary(
@@ -82,7 +83,7 @@ class QuestBoardViewModel @Inject constructor(
         }
         .distinctUntilChanged()
 
-    val uiState: StateFlow<QuestBoardUiState> = combine(
+    private val baseState = combine(
         tab,
         activeTasks,
         projectsWithCounts,
@@ -99,6 +100,12 @@ class QuestBoardViewModel @Inject constructor(
             isLoading = false,
             error = error,
         )
+    }
+
+    private val pendingCombat = MutableStateFlow<String?>(null)
+
+    val uiState: StateFlow<QuestBoardUiState> = combine(baseState, pendingCombat) { base, combatId ->
+        base.copy(pendingCombatTaskId = combatId)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), QuestBoardUiState())
 
     fun selectTab(target: QuestBoardTab) { tab.value = target }
@@ -107,6 +114,8 @@ class QuestBoardViewModel @Inject constructor(
     fun setLifeArea(area: LifeArea?) = filters.update { it.copy(lifeArea = area) }
     fun clearFilters() { filters.value = QuestBoardFilters() }
     fun clearError() { errorFlow.value = null }
+    fun startCombat(taskId: String) { pendingCombat.value = taskId }
+    fun dismissCombat() { pendingCombat.value = null }
 
     private fun applyFilters(tasks: List<Task>, f: QuestBoardFilters): List<Task> =
         tasks.asSequence()

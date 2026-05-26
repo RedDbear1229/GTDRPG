@@ -5,6 +5,7 @@ import androidx.room.Room
 import com.questlog.core.data.db.Converters
 import com.questlog.core.data.db.QuestLogDatabase
 import com.questlog.core.data.db.dao.CharacterDao
+import com.questlog.core.data.db.dao.CompletionDao
 import com.questlog.core.data.db.dao.InboxItemDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
@@ -15,9 +16,8 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-// Room bootstrap: v3 = Phase 2 F2.1 활성 스키마 (characters 추가, AutoMigration(2, 3)).
+// Room bootstrap: v4 = Phase 3 F3.1 활성 스키마 (combat_logs 추가, AutoMigration(3, 4)).
 // ⛔ MIGRATION_1_2 / AutoMigration(1, 2) / fallbackToDestructiveMigration() 금지 (도그푸딩 데이터 보호).
-// 수동 마이그레이션 등록 위치: F3.1 (CombatLog 등) 및 F4.4 (NPC 권한 게이트) 도입 시 .addMigrations(...).
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
@@ -43,4 +43,7 @@ object DatabaseModule {
 
     @Provides
     fun provideCharacterDao(db: QuestLogDatabase): CharacterDao = db.characterDao()
+
+    @Provides
+    fun provideCompletionDao(db: QuestLogDatabase): CompletionDao = db.completionDao()
 }

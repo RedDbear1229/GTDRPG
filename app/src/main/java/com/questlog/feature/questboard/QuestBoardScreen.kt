@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.questlog.core.domain.model.Task
+import com.questlog.feature.combat.D20RollSheet
 import com.questlog.feature.questboard.components.FilterBar
 import com.questlog.feature.questboard.components.ProjectCard
 import com.questlog.feature.questboard.components.QuestCard
@@ -47,6 +48,13 @@ fun QuestBoardScreen(
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
         }
+    }
+
+    state.pendingCombatTaskId?.let { taskId ->
+        D20RollSheet(
+            taskId = taskId,
+            onDismiss = { viewModel.dismissCombat() },
+        )
     }
 
     Scaffold(
@@ -81,8 +89,8 @@ fun QuestBoardScreen(
                 )
             }
             when (state.tab) {
-                QuestBoardTab.TODAY -> TaskList(state.today, onTaskClick)
-                QuestBoardTab.ACTIVE -> TaskList(state.active, onTaskClick)
+                QuestBoardTab.TODAY -> TaskList(state.today, onTaskClick, viewModel::startCombat)
+                QuestBoardTab.ACTIVE -> TaskList(state.active, onTaskClick, viewModel::startCombat)
                 QuestBoardTab.PROJECTS -> ProjectList(state.projects, onProjectClick)
             }
         }
@@ -90,7 +98,7 @@ fun QuestBoardScreen(
 }
 
 @Composable
-private fun TaskList(tasks: List<Task>, onClick: (String) -> Unit) {
+private fun TaskList(tasks: List<Task>, onClick: (String) -> Unit, onComplete: (String) -> Unit) {
     if (tasks.isEmpty()) {
         EmptyState(message = "해당하는 퀘스트가 없습니다")
     } else {
@@ -100,7 +108,11 @@ private fun TaskList(tasks: List<Task>, onClick: (String) -> Unit) {
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             items(tasks, key = { it.id }) { task ->
-                QuestCard(task = task, onClick = { onClick(task.id) })
+                QuestCard(
+                    task = task,
+                    onClick = { onClick(task.id) },
+                    onComplete = { onComplete(task.id) },
+                )
             }
         }
     }
