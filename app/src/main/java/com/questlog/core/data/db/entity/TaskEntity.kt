@@ -1,0 +1,64 @@
+package com.questlog.core.data.db.entity
+
+import androidx.room.Entity
+import androidx.room.ForeignKey
+import androidx.room.Index
+import androidx.room.PrimaryKey
+import com.questlog.core.domain.model.AbilityType
+import com.questlog.core.domain.model.LifeArea
+import com.questlog.core.domain.model.MonsterType
+import com.questlog.core.domain.model.TaskStatus
+import java.util.UUID
+
+@Entity(
+    tableName = "tasks",
+    foreignKeys = [
+        ForeignKey(
+            entity = ProjectEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["projectId"],
+            onDelete = ForeignKey.SET_NULL,
+        ),
+    ],
+    indices = [
+        Index("projectId"),
+        Index("status"),
+        Index("dueDate"),
+        Index("context"),
+        Index("lifeArea"),
+    ],
+)
+data class TaskEntity(
+    @PrimaryKey
+    val id: String = UUID.randomUUID().toString(),
+    val title: String,
+    val description: String? = null,
+    val nextAction: String? = null,
+    val projectId: String? = null,
+    val status: TaskStatus,
+    val lifeArea: LifeArea,
+    val context: String? = null,
+    val primaryAbility: AbilityType,
+    val challengeRating: Float,
+    val monsterType: MonsterType,
+    val monsterName: String? = null,
+    val estimatedMinutes: Int? = null,
+    val actualMinutes: Int? = null,
+    val dueDate: Long? = null,
+    val scheduledDate: Long? = null,
+    val delegatedTo: String? = null,
+    val delegatedAt: Long? = null,
+    val waitingFollowUpDate: Long? = null,
+    val attachmentPaths: List<String> = emptyList(),
+    val notes: String? = null,
+    val isRecurring: Boolean = false,
+    val recurringRule: String? = null,
+    val recurringParentId: String? = null,
+    val recurringInstanceDate: Long? = null,
+    val isQuickDone: Boolean = false,
+    val inboxItemId: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val completedAt: Long? = null,
+    val deletedAt: Long? = null,
+    val updatedAt: Long = System.currentTimeMillis(),
+)
