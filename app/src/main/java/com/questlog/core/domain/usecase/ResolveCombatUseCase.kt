@@ -3,23 +3,32 @@ package com.questlog.core.domain.usecase
 import com.questlog.core.domain.model.AbilityType
 import com.questlog.core.domain.model.Character
 import com.questlog.core.domain.model.CombatResult
+import com.questlog.core.domain.model.EquipmentSlot
+import com.questlog.core.domain.model.Item
 import com.questlog.core.domain.model.Task
 import kotlin.random.Random
 
 // docs/04_game_mechanics.md §4.1 SSOT.
-// random 주입으로 단위 테스트 가능 (RollAbilityScoresUseCase 선례 동일).
+// equippedItems: F4.1 에서 추가 — 장비 보너스 적용. 기본값 emptyList() 로 기존 테스트 비파괴.
+// itemDrop 계산은 ItemDropUseCase 위임.
 class ResolveCombatUseCase(
     private val random: Random = Random.Default,
+    private val itemDropUseCase: ItemDropUseCase = ItemDropUseCase(random),
 ) {
 
-    operator fun invoke(task: Task, character: Character): CombatResult {
+    operator fun invoke(
+        task: Task,
+        character: Character,
+        equippedItems: List<Item> = emptyList(),
+    ): CombatResult {
         val d20 = random.nextInt(1, 21)
 
-        if (d20 == 20) return buildCriticalHit(task, character)
+        if (d20 == 20) return buildCriticalHit(task, character, equippedItems)
         if (d20 == 1) return buildCriticalMiss(task.challengeRating, character)
 
+        val attackBonus = equippedWeaponBonus(equippedItems)
         val abilityMod = abilityModifier(task.primaryAbility, character)
-        val totalAttack = d20 + abilityMod + character.proficiencyBonus
+        val totalAttack = d20 + abilityMod + character.proficiencyBonus + attackBonus
         val monsterAC = monsterAC(task.challengeRating)
 
         return if (totalAttack >= monsterAC) {
@@ -27,7 +36,8 @@ class ResolveCombatUseCase(
                 d20Result = d20,
                 totalAttack = totalAttack,
                 monsterAC = monsterAC,
-                xpGained = calculateXp(task, character, isCritical = false),
+                xpGained = calculateXp(task, character, equippedItems, isCritical = false),
+                itemDrop = itemDropUseCase(task.challengeRating, isCriticalHit = false),
             )
         } else {
             CombatResult.Miss(
@@ -39,10 +49,12 @@ class ResolveCombatUseCase(
         }
     }
 
-    private fun buildCriticalHit(task: Task, character: Character) = CombatResult.CriticalHit(
-        xpGained = calculateXp(task, character, isCritical = true),
-        narrative = CRIT_NARRATIVES.random(random),
-    )
+    private fun buildCriticalHit(task: Task, character: Character, equippedItems: List<Item>) =
+        CombatResult.CriticalHit(
+            xpGained = calculateXp(task, character, equippedItems, isCritical = true),
+            narrative = CRIT_NARRATIVES.random(random),
+            itemDrop = itemDropUseCase(task.challengeRating, isCriticalHit = true),
+        )
 
     private fun buildCriticalMiss(cr: Float, character: Character) = CombatResult.CriticalMiss(
         hpLost = hpLoss(cr, isCritical = true),
@@ -56,22 +68,34 @@ class ResolveCombatUseCase(
         cr < 15f -> 18; cr < 18f -> 19; cr < 21f -> 20; else -> 22
     }
 
-    // docs/04_game_mechanics.md §4.1 calculateXP
-    internal fun calculateXp(task: Task, character: Character, isCritical: Boolean): Long {
+    // docs/04_game_mechanics.md §4.1 calculateXP (장비 XP 배율 F4.1 적용)
+    internal fun calculateXp(
+        task: Task,
+        character: Character,
+        equippedItems: List<Item>,
+        isCritical: Boolean,
+    ): Long {
         val base = (task.challengeRating * 25).toLong()
         val crit = if (isCritical) 2f else 1f
         val deadline = task.dueDate?.let { due ->
             if (due >= System.currentTimeMillis()) 1.2f else 0.9f
         } ?: 1f
         val streak = 1f + (character.streakDays * 0.05f).coerceAtMost(0.5f)
-        return (base * crit * deadline * streak).toLong().coerceAtLeast(1)
+        val equipment = equippedItems.fold(1.0f) { acc, item -> acc * item.xpMultiplier }
+        return (base * crit * deadline * streak * equipment).toLong().coerceAtLeast(1)
     }
 
-    // docs/04_game_mechanics.md §4.1 calculateHPLoss (장비 보너스는 Phase 4)
+    // 이전 테스트 호환용 — equippedItems 없이 호출 시 사용
+    internal fun calculateXp(task: Task, character: Character, isCritical: Boolean): Long =
+        calculateXp(task, character, emptyList(), isCritical)
+
     internal fun hpLoss(cr: Float, isCritical: Boolean): Int {
         val base = (cr * 1.5f).toInt().coerceAtLeast(1)
         return if (isCritical) base * 2 else base
     }
+
+    private fun equippedWeaponBonus(items: List<Item>): Int =
+        items.firstOrNull { it.equippedSlot == EquipmentSlot.WEAPON }?.attackBonus ?: 0
 
     private fun abilityModifier(ability: AbilityType, character: Character): Int {
         val score = when (ability) {

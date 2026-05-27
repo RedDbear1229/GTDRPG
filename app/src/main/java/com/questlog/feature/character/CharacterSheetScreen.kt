@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
@@ -40,6 +44,7 @@ private val TABS = listOf("스탯", "장비", "특수능력", "업적", "NPC")
 @Composable
 fun CharacterSheetScreen(
     onLevelUp: () -> Unit,
+    onSettings: () -> Unit = {},
     viewModel: CharacterViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -54,7 +59,16 @@ fun CharacterSheetScreen(
     }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("캐릭터 시트") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("캐릭터 시트") },
+                actions = {
+                    IconButton(onClick = onSettings) {
+                        Icon(Icons.Filled.Settings, contentDescription = "설정")
+                    }
+                },
+            )
+        },
     ) { padding ->
         val character = state.character
         if (character == null) {
@@ -97,7 +111,13 @@ fun CharacterSheetScreen(
             }
             when (selectedTab) {
                 0 -> StatsTab(character = character, modifier = Modifier.fillMaxSize())
-                1 -> EquipmentTab(modifier = Modifier.fillMaxSize())
+                1 -> EquipmentTab(
+                    equippedItems = state.equippedItems,
+                    inventory = state.inventory,
+                    onEquip = { itemId, slot -> viewModel.equipItem(itemId, slot) },
+                    onUnequip = { itemId -> viewModel.unequipItem(itemId) },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 2 -> AbilitiesTab(modifier = Modifier.fillMaxSize())
                 3 -> AchievementsTab(modifier = Modifier.fillMaxSize())
                 4 -> NpcTab(modifier = Modifier.fillMaxSize())

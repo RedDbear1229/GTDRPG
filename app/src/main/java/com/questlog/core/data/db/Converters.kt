@@ -6,6 +6,9 @@ import com.questlog.core.domain.model.AbilityType
 import com.questlog.core.domain.model.CaptureSource
 import com.questlog.core.domain.model.CharacterClass
 import com.questlog.core.domain.model.ClarifyResultType
+import com.questlog.core.domain.model.EquipmentSlot
+import com.questlog.core.domain.model.ItemRarity
+import com.questlog.core.domain.model.ItemType
 import com.questlog.core.domain.model.LifeArea
 import com.questlog.core.domain.model.MonsterType
 import com.questlog.core.domain.model.ProjectStatus
@@ -52,4 +55,13 @@ class Converters @Inject constructor(
 
     @TypeConverter fun fromCharacterClass(v: CharacterClass?): String? = v?.name
     @TypeConverter fun toCharacterClass(v: String?): CharacterClass? = v?.let(CharacterClass::valueOf)
+
+    @TypeConverter fun fromItemType(v: ItemType?): String? = v?.name
+    @TypeConverter fun toItemType(v: String?): ItemType? = v?.let(ItemType::valueOf)
+
+    @TypeConverter fun fromItemRarity(v: ItemRarity?): String? = v?.name
+    @TypeConverter fun toItemRarity(v: String?): ItemRarity? = v?.let(ItemRarity::valueOf)
+
+    @TypeConverter fun fromEquipmentSlot(v: EquipmentSlot?): String? = v?.name
+    @TypeConverter fun toEquipmentSlot(v: String?): EquipmentSlot? = v?.let(EquipmentSlot::valueOf)
 }

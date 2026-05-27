@@ -8,10 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
-// F4.4 아이템·NPC 이전까지 placeholder 탭. 빈 상태 텍스트만 표시.
-@Composable
-fun EquipmentTab(modifier: Modifier = Modifier) = PlaceholderTab("⚔️\n장비 (Phase 4)", modifier)
-
 @Composable
 fun AbilitiesTab(modifier: Modifier = Modifier) = PlaceholderTab("✨\n클래스 특수 능력 (Phase 3)", modifier)
 

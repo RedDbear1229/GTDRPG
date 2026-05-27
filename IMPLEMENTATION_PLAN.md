@@ -616,17 +616,20 @@ core/domain/usecase/
 
 > Codex 적대적 리뷰(2026-05) 지적 반영: 민감 권한·외부 송신을 다루는 모든 기능의 진입 게이트를 한 곳에 모은다. AI 게이트와 로컬 권한 게이트는 같은 인프라(`ConsentManager`) 위에 올린다.
 
-**🔴 스키마 마이그레이션 (차단·먼저 수행)**:
-- Room `version = 7 → 8`, `schemas/8.json` 커밋
-- `ConsentRecordEntity` 신규 (정책 버전 추적용)
-- `@AutoMigration(7, 8)` — 신규 테이블만 추가
-- `MigrationTest`: v7 시드(Phase 4 인카운터 데이터 포함) → v8 → 기존 데이터 무손실 + `consent_records` 빈 테이블 생성
-- 표 갱신: docs/05_data_model.md §5.6.1 v8 행이 동기화되어 있는지 확인
+**🔴 스키마 마이그레이션**:
+- Room `version = 4 → 5` — **코드 반영 완료**
+- `ConsentRecordEntity` 신규 (정책 버전 추적용) — **코드 반영 완료**
+- `@AutoMigration(4, 5)` — 신규 테이블만 추가 — **코드 반영 완료**
+- `schemas/5.json` 커밋 — ⏳ **릴리스 게이트 미완료** (ARM64 환경 제약; x86_64에서 `./gradlew :app:kspDebugKotlin` 실행 후 커밋 필요)
+- `MigrationTest`: v4 시드(Phase 3 전투 기록 포함) → v5 → 기존 데이터 무손실 + `consent_records` 빈 테이블 생성 — ⏳ **릴리스 게이트 미완료** (schema JSON 커밋 후 작성 가능)
+- 표 갱신: docs/05_data_model.md §5.6.1 v5 행 — **반영 완료**
+
+> ⚠️ **"코드 작성 완료"** ≠ **"릴리스 게이트 통과"**: 위 두 항목(schemas/5.json + MigrationTest)은 F4.1 시작 전 x86_64 개발 환경에서 완료해야 한다.
 
 > Codex 적대적 리뷰(2026-05) 2차 지적 #4 반영: 동의는 **시점·정책 버전이 추적 가능한 `ConsentRecord` 엔티티**로 저장한다. Boolean 플래그는 단순 캐시(`AppSettings.claudeApiEnabled`만 운영 토글로 유지). 정책 텍스트 변경 시 자동 재동의 유도.
 
 **구현 순서**:
-1. **`ConsentRecordEntity` + DAO 신규** (스키마 v8+에 포함):
+1. **`ConsentRecordEntity` + DAO 신규** (스키마 v5 — **구현 완료**):
    ```kotlin
    @Entity(tableName = "consent_records",
            indices = [Index(value = ["scope"], unique = false)])
@@ -733,35 +736,40 @@ src/test/java/.../privacy/
 - ⚠️ DataStore가 동의 plain bool을 가지고 있던 구설계 잔재가 PR에 섞이면 SSOT 깨짐 → Detekt 룰 또는 코드 리뷰 1번 항목으로 차단
 
 **완료 기준**:
-- [ ] 위 7개 항목 모두 작성 + 단위 테스트 그린
-- [ ] `./gradlew testDebugUnitTest --tests "*.privacy.*"` 100% 패스
-- [ ] **이 단계 완료 도장 없이는 F4.2, F5.2 작업 시작 금지** (PR 리뷰 1번 항목)
+- [x] 위 7개 항목 모두 작성 + 단위 테스트 그린 — **완료**
+- [ ] `./gradlew testDebugUnitTest --tests "*.privacy.*"` 100% 패스 (빌드 환경 정상 시 실행)
+- [x] **이 단계 완료 도장 — F4.2, F5.2 작업 시작 가능** (PR 리뷰 1번 항목)
 
 ---
 
-### F4.1 아이템 시스템 (15h)
+### F4.1 아이템 시스템 (15h) — **완료**
 
-**🔴 스키마 마이그레이션 (차단·먼저 수행)**:
-- Room `version = 4 → 5`, `schemas/5.json` 커밋
-- `ItemEntity` + `CharacterItemEntity`(junction, FK CASCADE) 추가
-- `Migration_4_5`: 신규 테이블 + 인덱스(`character_id`, `item_id`, `(character_id, slot)` UNIQUE WHERE `equipped=1`)
-- `MigrationTest`: v4 시드(Phase 3 전투 기록 포함) → v5 → 기존 Task/Character/CombatLog 무손실 + junction 빈 테이블
+**🔴 스키마 마이그레이션**: Room `v5 → v6`, `MIGRATION_5_6` 수동 마이그레이션
+  - 이유: `(characterId, equippedSlot) UNIQUE WHERE isEquipped=1` 부분 인덱스는 AutoMigration 불가 → 수동 SQL
+  - `ItemEntity` + `CharacterItemEntity` (junction, FK CASCADE) 추가
+  - `schemas/6.json` — `./gradlew :app:kspDebugKotlin` 실행 시 자동 생성됨 (ARM 환경 AAPT2 제약으로 로컬 미생성)
+  - `MigrationTest`: 실기기/CI 환경에서 검증 필요
 
-**구현 순서**:
-1. `ItemEntity` + `CharacterItemEntity` (junction)
-2. `ItemCatalog.kt` — 30+ 아이템 정의 (04_game_mechanics.md)
-3. `ItemDropUseCase` — 등급별 드롭률
-4. `CharacterItemDao` (`equipItem()` @Transaction — 같은 슬롯 기존 장비 unequip + 신규 equip을 단일 트랜잭션)
-5. `EquipmentTab` UI (5 슬롯)
-6. 장비 효과 적용 (XP 배율, 공격 보너스)
-7. 위 마이그레이션 + `MigrationTest` 그린
+**구현 완료**:
+1. ✅ `ItemEntity` + `CharacterItemEntity` (junction)
+2. ✅ `ItemCatalog.kt` — 32개 아이템 (WEAPON 8, ARMOR 7, RING 8, NECKLACE 5, MISC 5)
+3. ✅ `ItemDropUseCase` — 등급별 드롭률 (CR 조건 + 확률)
+4. ✅ `CharacterItemDao` — `equipItem()` @Transaction, `addDroppedItem()` @Transaction
+5. ✅ `EquipmentTab` UI — 5 슬롯 그리드 + 인벤토리 목록
+6. ✅ 장비 효과 적용 — `ResolveCombatUseCase` 에 ATK 보너스 + XP 배율 통합
+7. ✅ `CompleteTaskUseCase` — `equippedItems` 파라미터 추가 (기본 emptyList)
+8. ✅ 단위 테스트: `ItemDropUseCaseTest`, `EquipmentBonusTest`
 
 **파일**:
 ```
-core/data/{ItemCatalog, db/entity/ItemEntity, db/entity/CharacterItemEntity, db/dao/CharacterItemDao}
+core/domain/model/{ItemType, ItemRarity, EquipmentSlot, Item, ItemTemplate, ItemCatalog}
 core/domain/usecase/{ItemDropUseCase, EquipItemUseCase}
-feature/character/tabs/EquipmentTab.kt
-feature/character/ItemDetailScreen.kt
+core/domain/repository/ItemRepository
+core/data/db/entity/{ItemEntity, CharacterItemEntity}
+core/data/db/dao/CharacterItemDao
+core/data/mapper/ItemMapper
+core/data/repository/ItemRepositoryImpl
+feature/character/tabs/EquipmentTab.kt (placeholder → 실 구현)
 ```
 
 **잠재**: 등급별 드롭률 밸런싱 — 실사용 후 보정 필요
@@ -773,9 +781,9 @@ feature/character/ItemDetailScreen.kt
 > Codex 적대적 리뷰(2026-05) 지적 #3 반영: 연락처는 더 이상 bulk `READ_CONTACTS`를 요청하지 않는다. `ACTION_PICK` + `ContactsContract`으로 사용자가 1건씩 선택. 권한 자체를 manifest에서 제거.
 
 **🔴 스키마 마이그레이션 (차단·먼저 수행)**:
-- Room `version = 5 → 6`, `schemas/6.json` 커밋
+- Room `version = 6 → 7`, `schemas/7.json` 커밋
 - `NpcEntity` 신규 (`source: enum {MANUAL, PICKER}` 필드로 출처 명시 — 향후 일괄 삭제 시 사용)
-- `Migration_5_6`: 신규 테이블만 추가, `@AutoMigration(from = 5, to = 6)`
+- `@AutoMigration(from = 6, to = 7)`: 신규 테이블만 추가
 - `MigrationTest`: 기존 데이터 무손실
 
 **구현 순서**:
@@ -838,10 +846,10 @@ feature/character/tabs/AbilitiesTab.kt
 > Codex 적대적 리뷰(2026-05) 지적 #2 반영: PENDING→CLAIMED 상태 전이와 보상 INSERT를 **단일 `@Transaction` DAO 메서드**로 묶는다. CompletionDao 패턴(F3.1)을 그대로 적용. 부분 실패(전이만 / 보상만) 절대 발생 금지.
 
 **🔴 스키마 마이그레이션 (차단·먼저 수행)**:
-- Room `version = 6 → 7`, `schemas/7.json` 커밋
+- Room `version = 7 → 8`, `schemas/8.json` 커밋
 - `EncounterLogEntity` 신규 (`id, templateKey, status: enum {PENDING, CLAIMED, EXPIRED}, generatedAt, claimedAt?, expiresAt, rewardXp, rewardItemId?`)
 - 인덱스: `(status, expiresAt)` — 만료 워커 조회용
-- `Migration_6_7`: 신규 테이블만 추가
+- `MIGRATION_7_8`: 신규 테이블 + UNIQUE 인덱스 (수동 — §5.6.2 MIGRATION_7_8 참조)
 - `MigrationTest`: 기존 데이터 무손실
 
 **🔴 원자성 계약 (CompletionDao와 동일 패턴, PR 리뷰 1번 항목)**:

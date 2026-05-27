@@ -4,6 +4,7 @@ import com.questlog.core.domain.model.Character
 import com.questlog.core.domain.model.CombatLog
 import com.questlog.core.domain.model.CombatResult
 import com.questlog.core.domain.model.CompleteTaskResult
+import com.questlog.core.domain.model.Item
 import com.questlog.core.domain.repository.CharacterRepository
 import com.questlog.core.domain.repository.CompletionRepository
 import com.questlog.core.domain.repository.TaskRepository
@@ -19,13 +20,17 @@ class CompleteTaskUseCase @Inject constructor(
     private val completionRepository: CompletionRepository,
     private val resolveCombat: ResolveCombatUseCase,
 ) {
-    suspend operator fun invoke(taskId: String): CompleteTaskResult {
+    // equippedItems: ViewModel 이 현재 장착 아이템을 주입 (기본 emptyList = 장비 효과 없음)
+    suspend operator fun invoke(
+        taskId: String,
+        equippedItems: List<Item> = emptyList(),
+    ): CompleteTaskResult {
         val task = taskRepository.getById(taskId)
             ?: return CompleteTaskResult.Error("퀘스트를 찾을 수 없습니다")
         val character = characterRepository.getActive()
             ?: return CompleteTaskResult.Error("캐릭터가 없습니다")
 
-        val combatResult = resolveCombat(task, character)
+        val combatResult = resolveCombat(task, character, equippedItems)
         val now = System.currentTimeMillis()
         val stats = combatStats(combatResult)
         val updatedCharacter = applyResult(character, stats, now)

@@ -4,8 +4,11 @@ import android.content.Context
 import androidx.room.Room
 import com.questlog.core.data.db.Converters
 import com.questlog.core.data.db.QuestLogDatabase
+import com.questlog.core.data.db.MIGRATION_5_6
 import com.questlog.core.data.db.dao.CharacterDao
+import com.questlog.core.data.db.dao.CharacterItemDao
 import com.questlog.core.data.db.dao.CompletionDao
+import com.questlog.core.data.db.dao.ConsentRecordDao
 import com.questlog.core.data.db.dao.InboxItemDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
@@ -16,7 +19,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 
-// Room bootstrap: v4 = Phase 3 F3.1 활성 스키마 (combat_logs 추가, AutoMigration(3, 4)).
+// Room bootstrap: v5 = Phase 4 F4.0 활성 스키마 (consent_records 추가, AutoMigration(4, 5)).
 // ⛔ MIGRATION_1_2 / AutoMigration(1, 2) / fallbackToDestructiveMigration() 금지 (도그푸딩 데이터 보호).
 @Module
 @InstallIn(SingletonComponent::class)
@@ -30,6 +33,7 @@ object DatabaseModule {
     ): QuestLogDatabase =
         Room.databaseBuilder(context, QuestLogDatabase::class.java, "questlog.db")
             .addTypeConverter(converters)
+            .addMigrations(MIGRATION_5_6)
             .build()
 
     @Provides
@@ -46,4 +50,10 @@ object DatabaseModule {
 
     @Provides
     fun provideCompletionDao(db: QuestLogDatabase): CompletionDao = db.completionDao()
+
+    @Provides
+    fun provideConsentRecordDao(db: QuestLogDatabase): ConsentRecordDao = db.consentRecordDao()
+
+    @Provides
+    fun provideCharacterItemDao(db: QuestLogDatabase): CharacterItemDao = db.characterItemDao()
 }
