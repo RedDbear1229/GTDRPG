@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.questlog.core.domain.model.Character
 import com.questlog.core.domain.model.EquipmentSlot
 import com.questlog.core.domain.model.Item
+import com.questlog.core.domain.model.ClassAbilityDef
 import com.questlog.core.domain.repository.CharacterRepository
 import com.questlog.core.domain.repository.ItemRepository
+import com.questlog.core.domain.usecase.ActivateAbilityUseCase
 import com.questlog.core.domain.usecase.CheckLevelUpUseCase
 import com.questlog.core.domain.usecase.EquipItemUseCase
 import com.questlog.core.domain.usecase.GainXPUseCase
@@ -28,6 +30,8 @@ data class CharacterUiState(
     val levelUpEvent: Boolean = false,
     val equippedItems: List<Item> = emptyList(),
     val inventory: List<Item> = emptyList(),
+    val abilityActivatedEvent: Boolean = false,
+    val abilityError: String? = null,
 )
 
 @HiltViewModel
@@ -36,9 +40,12 @@ class CharacterViewModel @Inject constructor(
     private val itemRepository: ItemRepository,
     private val gainXPUseCase: GainXPUseCase,
     private val equipItemUseCase: EquipItemUseCase,
+    private val activateAbilityUseCase: ActivateAbilityUseCase,
 ) : ViewModel() {
 
     private val _levelUpEvent = MutableStateFlow(false)
+    private val _abilityActivated = MutableStateFlow(false)
+    private val _abilityError = MutableStateFlow<String?>(null)
 
     private val activeCharacterFlow = characterRepository.observeActive()
 
@@ -50,18 +57,25 @@ class CharacterViewModel @Inject constructor(
         if (char == null) flowOf(emptyList()) else itemRepository.getInventory(char.id)
     }
 
+    init {
+        viewModelScope.launch { ensureClassResourceInitialized() }
+    }
+
     val uiState: StateFlow<CharacterUiState> = combine(
         activeCharacterFlow,
         _levelUpEvent,
         equippedFlow,
         inventoryFlow,
-    ) { character, levelUp, equipped, inventory ->
+        combine(_abilityActivated, _abilityError) { a, b -> a to b },
+    ) { character, levelUp, equipped, inventory, abilityPair ->
         CharacterUiState(
             character = character,
             isLoading = false,
             levelUpEvent = levelUp,
             equippedItems = equipped,
             inventory = inventory,
+            abilityActivatedEvent = abilityPair.first,
+            abilityError = abilityPair.second,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), CharacterUiState())
 
@@ -90,4 +104,31 @@ class CharacterViewModel @Inject constructor(
     }
 
     fun consumeLevelUpEvent() = _levelUpEvent.update { false }
+
+    fun consumeAbilityActivatedEvent() = _abilityActivated.update { false }
+
+    fun activateAbility() {
+        viewModelScope.launch {
+            when (activateAbilityUseCase()) {
+                ActivateAbilityUseCase.Result.Success -> _abilityActivated.update { true }
+                ActivateAbilityUseCase.Result.NoResource -> _abilityError.update { "능력 충전이 필요합니다 (Long Rest 후 회복)" }
+                ActivateAbilityUseCase.Result.NoCharacter -> _abilityError.update { "캐릭터가 없습니다" }
+            }
+        }
+    }
+
+    fun dismissAbilityError() = _abilityError.update { null }
+
+    private suspend fun ensureClassResourceInitialized() {
+        val character = characterRepository.getActive() ?: return
+        if (character.classResourceMax > 0) return
+        val ability = ClassAbilityDef.forClass(character.classType)
+        characterRepository.upsert(
+            character.copy(
+                classResourceMax = ability.resourceMax,
+                classResourceCurrent = ability.resourceMax,
+                updatedAt = System.currentTimeMillis(),
+            )
+        )
+    }
 }

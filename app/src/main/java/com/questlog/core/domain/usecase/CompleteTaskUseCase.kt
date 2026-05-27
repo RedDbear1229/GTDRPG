@@ -5,6 +5,7 @@ import com.questlog.core.domain.model.CombatLog
 import com.questlog.core.domain.model.CombatResult
 import com.questlog.core.domain.model.CompleteTaskResult
 import com.questlog.core.domain.model.Item
+import com.questlog.core.domain.repository.BuffRepository
 import com.questlog.core.domain.repository.CharacterRepository
 import com.questlog.core.domain.repository.CompletionRepository
 import com.questlog.core.domain.repository.TaskRepository
@@ -19,6 +20,7 @@ class CompleteTaskUseCase @Inject constructor(
     private val characterRepository: CharacterRepository,
     private val completionRepository: CompletionRepository,
     private val resolveCombat: ResolveCombatUseCase,
+    private val buffRepository: BuffRepository,
 ) {
     // equippedItems: ViewModel 이 현재 장착 아이템을 주입 (기본 emptyList = 장비 효과 없음)
     suspend operator fun invoke(
@@ -30,15 +32,17 @@ class CompleteTaskUseCase @Inject constructor(
         val character = characterRepository.getActive()
             ?: return CompleteTaskResult.Error("캐릭터가 없습니다")
 
-        val combatResult = resolveCombat(task, character, equippedItems)
+        val activeBuff = buffRepository.getActiveBuff()
+        val combatResult = resolveCombat(task, character, equippedItems, activeBuff)
         val now = System.currentTimeMillis()
         val stats = combatStats(combatResult)
         val updatedCharacter = applyResult(character, stats, now)
         val log = buildLog(taskId, character, stats, now)
 
         val committed = completionRepository.completeTask(taskId, log, updatedCharacter, now)
-        return if (!committed) CompleteTaskResult.AlreadyCompleted
-        else CompleteTaskResult.Success(combatResult)
+        if (!committed) return CompleteTaskResult.AlreadyCompleted
+        if (activeBuff != null) buffRepository.clear()
+        return CompleteTaskResult.Success(combatResult)
     }
 
     private data class Stats(

@@ -25,9 +25,11 @@ class HpResetAndStreakWorker @AssistedInject constructor(
         val character = characterRepository.getActive() ?: return Result.success()
         val streakResult = updateStreak(character)
 
-        // Long Rest: 자정마다 HP 전체 회복
+        // Long Rest: 자정마다 HP 전체 회복 + 클래스 리소스 완충
         val restored = streakResult.character.copy(
             currentHp = streakResult.character.maxHp,
+            classResourceCurrent = streakResult.character.classResourceMax,
+            classResourceLastRefresh = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis(),
         )
         characterRepository.upsert(restored)

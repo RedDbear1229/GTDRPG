@@ -1,6 +1,7 @@
 package com.questlog.core.domain.usecase
 
 import com.questlog.core.domain.model.AbilityType
+import com.questlog.core.domain.model.BuffEffectType
 import com.questlog.core.domain.model.Character
 import com.questlog.core.domain.model.CombatResult
 import com.questlog.core.domain.model.EquipmentSlot
@@ -20,15 +21,32 @@ class ResolveCombatUseCase(
         task: Task,
         character: Character,
         equippedItems: List<Item> = emptyList(),
+        activeBuff: String? = null,
     ): CombatResult {
+        val buff = parseBuff(activeBuff)
         val d20 = random.nextInt(1, 21)
 
-        if (d20 == 20) return buildCriticalHit(task, character, equippedItems)
+        // GUARANTEED_HIT 버프: 무조건 Hit 처리 (크리티컬 아님)
+        if (buff?.first == BuffEffectType.GUARANTEED_HIT) {
+            val monsterAC = monsterAC(task.challengeRating)
+            return CombatResult.Hit(
+                d20Result = d20,
+                totalAttack = monsterAC,
+                monsterAC = monsterAC,
+                xpGained = applyXpBuff(calculateXp(task, character, equippedItems, isCritical = false), buff),
+                itemDrop = itemDropUseCase(task.challengeRating, isCriticalHit = false),
+            )
+        }
+
+        // CRIT_THRESHOLD 버프: D20 ≥ threshold 시 크리티컬
+        val critThreshold = if (buff?.first == BuffEffectType.CRIT_THRESHOLD) buff.second else 20
+        if (d20 >= critThreshold) return buildCriticalHit(task, character, equippedItems, buff)
         if (d20 == 1) return buildCriticalMiss(task.challengeRating, character)
 
-        val attackBonus = equippedWeaponBonus(equippedItems)
+        val weaponBonus = equippedWeaponBonus(equippedItems)
+        val attackBuff = if (buff?.first == BuffEffectType.ATTACK_BONUS) buff.second else 0
         val abilityMod = abilityModifier(task.primaryAbility, character)
-        val totalAttack = d20 + abilityMod + character.proficiencyBonus + attackBonus
+        val totalAttack = d20 + abilityMod + character.proficiencyBonus + weaponBonus + attackBuff
         val monsterAC = monsterAC(task.challengeRating)
 
         return if (totalAttack >= monsterAC) {
@@ -36,25 +54,33 @@ class ResolveCombatUseCase(
                 d20Result = d20,
                 totalAttack = totalAttack,
                 monsterAC = monsterAC,
-                xpGained = calculateXp(task, character, equippedItems, isCritical = false),
+                xpGained = applyXpBuff(calculateXp(task, character, equippedItems, isCritical = false), buff),
                 itemDrop = itemDropUseCase(task.challengeRating, isCriticalHit = false),
             )
         } else {
+            val rawHpLost = hpLoss(task.challengeRating, isCritical = false)
+            val reducedHpLost = if (buff?.first == BuffEffectType.DAMAGE_REDUCE) {
+                (rawHpLost * buff.second / 100f).toInt().coerceAtLeast(0)
+            } else rawHpLost
             CombatResult.Miss(
                 d20Result = d20,
                 totalAttack = totalAttack,
                 monsterAC = monsterAC,
-                hpLost = hpLoss(task.challengeRating, isCritical = false),
+                hpLost = reducedHpLost,
             )
         }
     }
 
-    private fun buildCriticalHit(task: Task, character: Character, equippedItems: List<Item>) =
-        CombatResult.CriticalHit(
-            xpGained = calculateXp(task, character, equippedItems, isCritical = true),
-            narrative = CRIT_NARRATIVES.random(random),
-            itemDrop = itemDropUseCase(task.challengeRating, isCriticalHit = true),
-        )
+    private fun buildCriticalHit(
+        task: Task,
+        character: Character,
+        equippedItems: List<Item>,
+        buff: Pair<BuffEffectType, Int>? = null,
+    ) = CombatResult.CriticalHit(
+        xpGained = applyXpBuff(calculateXp(task, character, equippedItems, isCritical = true), buff),
+        narrative = CRIT_NARRATIVES.random(random),
+        itemDrop = itemDropUseCase(task.challengeRating, isCriticalHit = true),
+    )
 
     private fun buildCriticalMiss(cr: Float, character: Character) = CombatResult.CriticalMiss(
         hpLost = hpLoss(cr, isCritical = true),
@@ -88,6 +114,19 @@ class ResolveCombatUseCase(
     // 이전 테스트 호환용 — equippedItems 없이 호출 시 사용
     internal fun calculateXp(task: Task, character: Character, isCritical: Boolean): Long =
         calculateXp(task, character, emptyList(), isCritical)
+
+    private fun applyXpBuff(base: Long, buff: Pair<BuffEffectType, Int>?): Long {
+        if (buff?.first != BuffEffectType.XP_MULTIPLIER) return base
+        return (base * buff.second / 100f).toLong().coerceAtLeast(1)
+    }
+
+    private fun parseBuff(code: String?): Pair<BuffEffectType, Int>? {
+        if (code.isNullOrBlank()) return null
+        return runCatching {
+            val parts = code.split(":")
+            BuffEffectType.valueOf(parts[0]) to (parts.getOrNull(1)?.toInt() ?: 0)
+        }.getOrNull()
+    }
 
     internal fun hpLoss(cr: Float, isCritical: Boolean): Int {
         val base = (cr * 1.5f).toInt().coerceAtLeast(1)

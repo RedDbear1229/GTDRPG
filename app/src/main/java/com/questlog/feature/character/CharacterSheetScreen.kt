@@ -57,6 +57,9 @@ fun CharacterSheetScreen(
             onLevelUp()
         }
     }
+    LaunchedEffect(state.abilityActivatedEvent) {
+        if (state.abilityActivatedEvent) viewModel.consumeAbilityActivatedEvent()
+    }
 
     Scaffold(
         topBar = {
@@ -120,7 +123,11 @@ fun CharacterSheetScreen(
                     onUnequip = { itemId -> viewModel.unequipItem(itemId) },
                     modifier = Modifier.fillMaxSize(),
                 )
-                2 -> AbilitiesTab(modifier = Modifier.fillMaxSize())
+                2 -> AbilitiesTab(
+                    character = character,
+                    onActivate = { viewModel.activateAbility() },
+                    modifier = Modifier.fillMaxSize(),
+                )
                 3 -> AchievementsTab(modifier = Modifier.fillMaxSize())
             }
         }

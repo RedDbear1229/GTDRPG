@@ -9,9 +9,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 
 @Composable
-fun AbilitiesTab(modifier: Modifier = Modifier) = PlaceholderTab("✨\n클래스 특수 능력 (Phase 3)", modifier)
-
-@Composable
 fun AchievementsTab(modifier: Modifier = Modifier) = PlaceholderTab("🏆\n업적 (Phase 5)", modifier)
 
 @Composable
