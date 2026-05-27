@@ -17,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
+import com.questlog.core.domain.model.HpStatus
 
 @Composable
 fun HpBar(
@@ -30,11 +31,20 @@ fun HpBar(
         animationSpec = tween(durationMillis = 600),
         label = "hp_anim",
     )
-    val barColor = when {
-        fraction > 0.75f -> Color(0xFF4CAF50)
-        fraction > 0.50f -> Color(0xFFFFC107)
-        fraction > 0.25f -> Color(0xFFFF9800)
-        else -> Color(0xFFF44336)
+    val status = HpStatus.of(currentHp, maxHp)
+    val barColor = when (status) {
+        HpStatus.HEALTHY     -> Color(0xFF4CAF50)
+        HpStatus.TIRED       -> Color(0xFFFFC107)
+        HpStatus.WOUNDED     -> Color(0xFFFF9800)
+        HpStatus.CRITICAL,
+        HpStatus.UNCONSCIOUS -> Color(0xFFF44336)
+    }
+    val statusLabel = when (status) {
+        HpStatus.HEALTHY     -> "건강"
+        HpStatus.TIRED       -> "피로"
+        HpStatus.WOUNDED     -> "부상"
+        HpStatus.CRITICAL    -> "위기"
+        HpStatus.UNCONSCIOUS -> "기절"
     }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(
@@ -42,7 +52,7 @@ fun HpBar(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("❤️ HP", style = MaterialTheme.typography.labelMedium)
+            Text("❤️ HP · $statusLabel", style = MaterialTheme.typography.labelMedium)
             Text(
                 "$currentHp / $maxHp",
                 style = MaterialTheme.typography.labelMedium,

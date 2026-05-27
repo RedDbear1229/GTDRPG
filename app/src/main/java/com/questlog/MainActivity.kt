@@ -44,6 +44,7 @@ import com.questlog.feature.onboarding.OnboardingScreen
 import com.questlog.feature.questboard.ProjectDetailScreen
 import com.questlog.feature.questboard.QuestBoardScreen
 import com.questlog.feature.questboard.TaskDetailScreen
+import com.questlog.worker.WorkerScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -58,6 +59,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        WorkerScheduler.schedule(this)
         absorbIntent(intent)
         setContent {
             QuestLogTheme {
