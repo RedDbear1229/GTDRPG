@@ -5,11 +5,13 @@ import androidx.room.Room
 import com.questlog.core.data.db.Converters
 import com.questlog.core.data.db.QuestLogDatabase
 import com.questlog.core.data.db.MIGRATION_5_6
+import com.questlog.core.data.db.MIGRATION_6_7
 import com.questlog.core.data.db.dao.CharacterDao
 import com.questlog.core.data.db.dao.CharacterItemDao
 import com.questlog.core.data.db.dao.CompletionDao
 import com.questlog.core.data.db.dao.ConsentRecordDao
 import com.questlog.core.data.db.dao.InboxItemDao
+import com.questlog.core.data.db.dao.NpcDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
 import dagger.Module
@@ -33,7 +35,7 @@ object DatabaseModule {
     ): QuestLogDatabase =
         Room.databaseBuilder(context, QuestLogDatabase::class.java, "questlog.db")
             .addTypeConverter(converters)
-            .addMigrations(MIGRATION_5_6)
+            .addMigrations(MIGRATION_5_6, MIGRATION_6_7)
             .build()
 
     @Provides
@@ -56,4 +58,7 @@ object DatabaseModule {
 
     @Provides
     fun provideCharacterItemDao(db: QuestLogDatabase): CharacterItemDao = db.characterItemDao()
+
+    @Provides
+    fun provideNpcDao(db: QuestLogDatabase): NpcDao = db.npcDao()
 }

@@ -35,7 +35,6 @@ import com.questlog.core.domain.model.ClassContent
 import com.questlog.feature.character.tabs.AbilitiesTab
 import com.questlog.feature.character.tabs.AchievementsTab
 import com.questlog.feature.character.tabs.EquipmentTab
-import com.questlog.feature.character.tabs.NpcTab
 import com.questlog.feature.character.tabs.StatsTab
 
 private val TABS = listOf("스탯", "장비", "특수능력", "업적", "NPC")
@@ -45,6 +44,7 @@ private val TABS = listOf("스탯", "장비", "특수능력", "업적", "NPC")
 fun CharacterSheetScreen(
     onLevelUp: () -> Unit,
     onSettings: () -> Unit = {},
+    onNpcList: () -> Unit = {},
     viewModel: CharacterViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -104,7 +104,9 @@ fun CharacterSheetScreen(
                 TABS.forEachIndexed { idx, title ->
                     Tab(
                         selected = selectedTab == idx,
-                        onClick = { selectedTab = idx },
+                        onClick = {
+                            if (idx == 4) onNpcList() else selectedTab = idx
+                        },
                         text = { Text(title) },
                     )
                 }
@@ -120,7 +122,6 @@ fun CharacterSheetScreen(
                 )
                 2 -> AbilitiesTab(modifier = Modifier.fillMaxSize())
                 3 -> AchievementsTab(modifier = Modifier.fillMaxSize())
-                4 -> NpcTab(modifier = Modifier.fillMaxSize())
             }
         }
     }

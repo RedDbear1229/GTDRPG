@@ -36,6 +36,7 @@ import com.questlog.core.data.datastore.OnboardingPreferences
 import com.questlog.core.ui.theme.QuestLogTheme
 import com.questlog.feature.character.CharacterSheetScreen
 import com.questlog.feature.character.LevelUpScreen
+import com.questlog.feature.npc.NpcScreen
 import com.questlog.feature.inbox.InboxScreen
 import com.questlog.feature.inbox.InboxViewModel
 import com.questlog.feature.inbox.widget.InboxWidgetProvider
@@ -44,6 +45,7 @@ import com.questlog.feature.onboarding.OnboardingScreen
 import com.questlog.feature.questboard.ProjectDetailScreen
 import com.questlog.feature.questboard.QuestBoardScreen
 import com.questlog.feature.questboard.TaskDetailScreen
+import com.questlog.feature.settings.SettingsScreen
 import com.questlog.worker.WorkerScheduler
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -104,6 +106,8 @@ private object Routes {
     const val JOURNAL = "journal"
     const val CHARACTER = "character"
     const val LEVEL_UP = "level_up"
+    const val SETTINGS = "settings"
+    const val NPC_LIST = "npc_list"
     const val PROJECT_DETAIL = "project/{projectId}"
     const val TASK_DETAIL = "task/{taskId}"
     fun project(id: String) = "project/$id"
@@ -188,12 +192,20 @@ private fun QuestLogRoot(
                             launchSingleTop = true
                         }
                     },
+                    onSettings = { navController.navigate(Routes.SETTINGS) },
+                    onNpcList = { navController.navigate(Routes.NPC_LIST) },
                 )
+            }
+            composable(Routes.NPC_LIST) {
+                NpcScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.LEVEL_UP) {
                 LevelUpScreen(
                     onContinue = { navController.popBackStack() },
                 )
+            }
+            composable(Routes.SETTINGS) {
+                SettingsScreen(onBack = { navController.popBackStack() })
             }
         }
     }

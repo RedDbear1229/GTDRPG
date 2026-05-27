@@ -5,6 +5,7 @@ import com.questlog.core.data.repository.ClarifyRepositoryImpl
 import com.questlog.core.data.repository.CompletionRepositoryImpl
 import com.questlog.core.data.repository.InboxItemRepositoryImpl
 import com.questlog.core.data.repository.ItemRepositoryImpl
+import com.questlog.core.data.repository.NpcRepositoryImpl
 import com.questlog.core.data.repository.ProjectRepositoryImpl
 import com.questlog.core.data.repository.TaskRepositoryImpl
 import com.questlog.core.domain.repository.CharacterRepository
@@ -12,6 +13,7 @@ import com.questlog.core.domain.repository.ClarifyRepository
 import com.questlog.core.domain.repository.CompletionRepository
 import com.questlog.core.domain.repository.InboxItemRepository
 import com.questlog.core.domain.repository.ItemRepository
+import com.questlog.core.domain.repository.NpcRepository
 import com.questlog.core.domain.repository.ProjectRepository
 import com.questlog.core.domain.repository.TaskRepository
 import dagger.Binds
@@ -51,4 +53,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindItemRepository(impl: ItemRepositoryImpl): ItemRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindNpcRepository(impl: NpcRepositoryImpl): NpcRepository
 }

@@ -15,9 +15,6 @@ fun AbilitiesTab(modifier: Modifier = Modifier) = PlaceholderTab("✨\n클래스
 fun AchievementsTab(modifier: Modifier = Modifier) = PlaceholderTab("🏆\n업적 (Phase 5)", modifier)
 
 @Composable
-fun NpcTab(modifier: Modifier = Modifier) = PlaceholderTab("👥\nNPC (Phase 4)", modifier)
-
-@Composable
 private fun PlaceholderTab(text: String, modifier: Modifier = Modifier) {
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(text, style = MaterialTheme.typography.bodyLarge,

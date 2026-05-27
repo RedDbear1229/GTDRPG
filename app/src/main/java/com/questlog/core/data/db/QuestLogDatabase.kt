@@ -13,12 +13,14 @@ import com.questlog.core.data.db.dao.ConsentRecordDao
 import com.questlog.core.data.db.dao.InboxItemDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
+import com.questlog.core.data.db.dao.NpcDao
 import com.questlog.core.data.db.entity.CharacterEntity
 import com.questlog.core.data.db.entity.CharacterItemEntity
 import com.questlog.core.data.db.entity.CombatLogEntity
 import com.questlog.core.data.db.entity.ConsentRecordEntity
 import com.questlog.core.data.db.entity.InboxItemEntity
 import com.questlog.core.data.db.entity.ItemEntity
+import com.questlog.core.data.db.entity.NpcEntity
 import com.questlog.core.data.db.entity.ProjectEntity
 import com.questlog.core.data.db.entity.TaskEntity
 
@@ -29,6 +31,7 @@ import com.questlog.core.data.db.entity.TaskEntity
 //   v4 = Phase 3 F3.1 — combat_logs 테이블. AutoMigration(3, 4).
 //   v5 = Phase 4 F4.0 — consent_records 테이블. AutoMigration(4, 5).
 //   v6 = Phase 4 F4.1 — items + character_items 테이블. MIGRATION_5_6 (수동, 부분 인덱스 포함).
+//   v7 = Phase 4 F4.2 — npcs 테이블. MIGRATION_6_7 (수동).
 // schemas/N.json 모두 app/schemas/com.questlog.core.data.db.QuestLogDatabase/ 커밋 필수.
 @Database(
     entities = [
@@ -40,8 +43,9 @@ import com.questlog.core.data.db.entity.TaskEntity
         ConsentRecordEntity::class,
         ItemEntity::class,
         CharacterItemEntity::class,
+        NpcEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -58,6 +62,7 @@ abstract class QuestLogDatabase : RoomDatabase() {
     abstract fun completionDao(): CompletionDao
     abstract fun consentRecordDao(): ConsentRecordDao
     abstract fun characterItemDao(): CharacterItemDao
+    abstract fun npcDao(): NpcDao
 }
 
 // 수동 마이그레이션: items + character_items 추가.
@@ -108,5 +113,24 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
             ON `character_items` (`characterId`, `equippedSlot`)
             WHERE isEquipped = 1
         """.trimIndent())
+    }
+}
+
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `npcs` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `name` TEXT NOT NULL,
+                `displayName` TEXT,
+                `phoneNumber` TEXT,
+                `classType` TEXT NOT NULL,
+                `source` TEXT NOT NULL,
+                `notes` TEXT NOT NULL DEFAULT '',
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_npcs_source` ON `npcs` (`source`)")
     }
 }
