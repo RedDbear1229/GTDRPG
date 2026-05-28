@@ -1,6 +1,5 @@
 package com.questlog.core.data.db
 
-import androidx.room.AutoMigration
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
@@ -59,11 +58,6 @@ import com.questlog.core.data.db.entity.XpAwardEntity
     ],
     version = 9,
     exportSchema = true,
-    autoMigrations = [
-        AutoMigration(from = 2, to = 3),
-        AutoMigration(from = 3, to = 4),
-        AutoMigration(from = 4, to = 5),
-    ],
 )
 @TypeConverters(Converters::class)
 abstract class QuestLogDatabase : RoomDatabase() {
@@ -79,6 +73,90 @@ abstract class QuestLogDatabase : RoomDatabase() {
     abstract fun claimEncounterRewardDao(): ClaimEncounterRewardDao
     abstract fun weeklyReviewDao(): WeeklyReviewDao
     abstract fun combatLogDao(): CombatLogDao
+}
+
+// v2→v3: characters 테이블 추가 (AutoMigration 대체 — 스키마 JSON 불필요)
+val MIGRATION_2_3 = object : Migration(2, 3) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `characters` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `name` TEXT NOT NULL,
+                `classType` TEXT NOT NULL,
+                `avatarResId` INTEGER NOT NULL DEFAULT 0,
+                `backstory` TEXT,
+                `level` INTEGER NOT NULL DEFAULT 1,
+                `currentXp` INTEGER NOT NULL DEFAULT 0,
+                `totalXpEarned` INTEGER NOT NULL DEFAULT 0,
+                `maxHp` INTEGER NOT NULL,
+                `currentHp` INTEGER NOT NULL,
+                `strength` INTEGER NOT NULL,
+                `dexterity` INTEGER NOT NULL,
+                `constitution` INTEGER NOT NULL,
+                `intelligence` INTEGER NOT NULL,
+                `wisdom` INTEGER NOT NULL,
+                `charisma` INTEGER NOT NULL,
+                `proficiencyBonus` INTEGER NOT NULL,
+                `armorClass` INTEGER NOT NULL DEFAULT 10,
+                `streakDays` INTEGER NOT NULL DEFAULT 0,
+                `longestStreak` INTEGER NOT NULL DEFAULT 0,
+                `lastActivityDate` INTEGER,
+                `streakProtectTokens` INTEGER NOT NULL DEFAULT 0,
+                `totalQuestsCompleted` INTEGER NOT NULL DEFAULT 0,
+                `totalMonstersSlain` INTEGER NOT NULL DEFAULT 0,
+                `totalCriticalHits` INTEGER NOT NULL DEFAULT 0,
+                `totalCriticalMisses` INTEGER NOT NULL DEFAULT 0,
+                `totalXpFromCriticals` INTEGER NOT NULL DEFAULT 0,
+                `classResourceCurrent` INTEGER NOT NULL DEFAULT 0,
+                `classResourceMax` INTEGER NOT NULL DEFAULT 0,
+                `classResourceLastRefresh` INTEGER,
+                `createdAt` INTEGER NOT NULL,
+                `updatedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+    }
+}
+
+// v3→v4: combat_logs 테이블 추가 (AutoMigration 대체)
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `combat_logs` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `taskId` TEXT,
+                `characterId` TEXT NOT NULL,
+                `d20Result` INTEGER NOT NULL,
+                `totalAttack` INTEGER NOT NULL,
+                `monsterAC` INTEGER NOT NULL,
+                `xpGained` INTEGER NOT NULL,
+                `hpLost` INTEGER NOT NULL,
+                `isCriticalHit` INTEGER NOT NULL,
+                `isCriticalMiss` INTEGER NOT NULL,
+                `rolledAt` INTEGER NOT NULL,
+                FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON DELETE SET NULL,
+                FOREIGN KEY(`characterId`) REFERENCES `characters`(`id`) ON DELETE CASCADE
+            )
+        """.trimIndent())
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_combat_logs_taskId` ON `combat_logs` (`taskId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_combat_logs_characterId` ON `combat_logs` (`characterId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_combat_logs_rolledAt` ON `combat_logs` (`rolledAt`)")
+    }
+}
+
+// v4→v5: consent_records 테이블 추가 (AutoMigration 대체)
+val MIGRATION_4_5 = object : Migration(4, 5) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `consent_records` (
+                `id` INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+                `scope` TEXT NOT NULL,
+                `policyVersion` INTEGER NOT NULL,
+                `acceptedAt` INTEGER NOT NULL,
+                `revokedAt` INTEGER
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_consent_records_scope` ON `consent_records` (`scope`)")
+    }
 }
 
 // 수동 마이그레이션: items + character_items 추가.

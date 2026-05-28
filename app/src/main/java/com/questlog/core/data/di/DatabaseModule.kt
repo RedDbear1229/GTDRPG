@@ -4,6 +4,9 @@ import android.content.Context
 import androidx.room.Room
 import com.questlog.core.data.db.Converters
 import com.questlog.core.data.db.QuestLogDatabase
+import com.questlog.core.data.db.MIGRATION_2_3
+import com.questlog.core.data.db.MIGRATION_3_4
+import com.questlog.core.data.db.MIGRATION_4_5
 import com.questlog.core.data.db.MIGRATION_5_6
 import com.questlog.core.data.db.MIGRATION_6_7
 import com.questlog.core.data.db.MIGRATION_7_8
@@ -41,7 +44,7 @@ object DatabaseModule {
     ): QuestLogDatabase =
         Room.databaseBuilder(context, QuestLogDatabase::class.java, "questlog.db")
             .addTypeConverter(converters)
-            .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .build()
 
     @Provides
