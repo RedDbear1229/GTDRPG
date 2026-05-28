@@ -7,9 +7,11 @@ import com.questlog.core.data.db.QuestLogDatabase
 import com.questlog.core.data.db.MIGRATION_5_6
 import com.questlog.core.data.db.MIGRATION_6_7
 import com.questlog.core.data.db.MIGRATION_7_8
+import com.questlog.core.data.db.MIGRATION_8_9
 import com.questlog.core.data.db.dao.CharacterDao
 import com.questlog.core.data.db.dao.CharacterItemDao
 import com.questlog.core.data.db.dao.ClaimEncounterRewardDao
+import com.questlog.core.data.db.dao.CombatLogDao
 import com.questlog.core.data.db.dao.CompletionDao
 import com.questlog.core.data.db.dao.ConsentRecordDao
 import com.questlog.core.data.db.dao.EncounterLogDao
@@ -17,6 +19,7 @@ import com.questlog.core.data.db.dao.InboxItemDao
 import com.questlog.core.data.db.dao.NpcDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
+import com.questlog.core.data.db.dao.WeeklyReviewDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -38,7 +41,7 @@ object DatabaseModule {
     ): QuestLogDatabase =
         Room.databaseBuilder(context, QuestLogDatabase::class.java, "questlog.db")
             .addTypeConverter(converters)
-            .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
+            .addMigrations(MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
             .build()
 
     @Provides
@@ -70,4 +73,10 @@ object DatabaseModule {
 
     @Provides
     fun provideClaimEncounterRewardDao(db: QuestLogDatabase): ClaimEncounterRewardDao = db.claimEncounterRewardDao()
+
+    @Provides
+    fun provideWeeklyReviewDao(db: QuestLogDatabase): WeeklyReviewDao = db.weeklyReviewDao()
+
+    @Provides
+    fun provideCombatLogDao(db: QuestLogDatabase): CombatLogDao = db.combatLogDao()
 }

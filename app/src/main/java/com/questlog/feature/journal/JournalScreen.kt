@@ -15,7 +15,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -33,11 +37,21 @@ import com.questlog.feature.journal.components.CompletedTaskCard
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun JournalScreen(
+    onWeeklyReview: () -> Unit = {},
     viewModel: JournalViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
     Scaffold(
-        topBar = { TopAppBar(title = { Text("저널") }) },
+        topBar = {
+            TopAppBar(
+                title = { Text("저널") },
+                actions = {
+                    IconButton(onClick = onWeeklyReview) {
+                        Icon(Icons.Outlined.DateRange, contentDescription = "주간 리뷰")
+                    }
+                },
+            )
+        },
     ) { padding ->
         Column(
             modifier = Modifier

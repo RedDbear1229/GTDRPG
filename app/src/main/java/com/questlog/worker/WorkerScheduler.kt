@@ -4,9 +4,12 @@ import android.content.Context
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.ZoneId
+import java.time.temporal.TemporalAdjusters
 import java.util.concurrent.TimeUnit
 
 object WorkerScheduler {
@@ -38,6 +41,16 @@ object WorkerScheduler {
             ExistingPeriodicWorkPolicy.KEEP,
             expirationRequest,
         )
+
+        // 주간 리뷰 알림: 매일 10:00 실행, 토요일에만 실제 알림 (Worker 내부 가드).
+        val weeklyReviewRequest = PeriodicWorkRequestBuilder<WeeklyReviewReminderWorker>(1, TimeUnit.DAYS)
+            .setInitialDelay(millisUntil10am(), TimeUnit.MILLISECONDS)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            WeeklyReviewReminderWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            weeklyReviewRequest,
+        )
     }
 
     private fun millisUntilMidnight(): Long {
@@ -48,5 +61,14 @@ object WorkerScheduler {
             .toInstant()
             .toEpochMilli()
         return (midnight - Instant.now().toEpochMilli()).coerceAtLeast(0L)
+    }
+
+    private fun millisUntil10am(): Long {
+        val zone = ZoneId.systemDefault()
+        val now = Instant.now()
+        val target10am = LocalDate.now(zone).atTime(LocalTime.of(10, 0)).atZone(zone).toInstant()
+        val next10am = if (now.isBefore(target10am)) target10am
+        else LocalDate.now(zone).plusDays(1).atTime(LocalTime.of(10, 0)).atZone(zone).toInstant()
+        return (next10am.toEpochMilli() - now.toEpochMilli()).coerceAtLeast(0L)
     }
 }

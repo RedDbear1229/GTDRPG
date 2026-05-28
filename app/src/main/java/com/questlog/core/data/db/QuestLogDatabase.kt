@@ -8,14 +8,16 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import com.questlog.core.data.db.dao.CharacterDao
 import com.questlog.core.data.db.dao.CharacterItemDao
+import com.questlog.core.data.db.dao.ClaimEncounterRewardDao
+import com.questlog.core.data.db.dao.CombatLogDao
 import com.questlog.core.data.db.dao.CompletionDao
 import com.questlog.core.data.db.dao.ConsentRecordDao
+import com.questlog.core.data.db.dao.EncounterLogDao
 import com.questlog.core.data.db.dao.InboxItemDao
+import com.questlog.core.data.db.dao.NpcDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
-import com.questlog.core.data.db.dao.ClaimEncounterRewardDao
-import com.questlog.core.data.db.dao.EncounterLogDao
-import com.questlog.core.data.db.dao.NpcDao
+import com.questlog.core.data.db.dao.WeeklyReviewDao
 import com.questlog.core.data.db.entity.CharacterEntity
 import com.questlog.core.data.db.entity.CharacterItemEntity
 import com.questlog.core.data.db.entity.CombatLogEntity
@@ -26,6 +28,7 @@ import com.questlog.core.data.db.entity.ItemEntity
 import com.questlog.core.data.db.entity.NpcEntity
 import com.questlog.core.data.db.entity.ProjectEntity
 import com.questlog.core.data.db.entity.TaskEntity
+import com.questlog.core.data.db.entity.WeeklyReviewEntity
 import com.questlog.core.data.db.entity.XpAwardEntity
 
 // 스키마 버전 히스토리:
@@ -37,6 +40,7 @@ import com.questlog.core.data.db.entity.XpAwardEntity
 //   v6 = Phase 4 F4.1 — items + character_items 테이블. MIGRATION_5_6 (수동, 부분 인덱스 포함).
 //   v7 = Phase 4 F4.2 — npcs 테이블. MIGRATION_6_7 (수동).
 //   v8 = Phase 4 F4.4 — encounter_logs + xp_awards 테이블. MIGRATION_7_8 (수동).
+//   v9 = Phase 5 F5.3 — weekly_reviews 테이블. MIGRATION_8_9 (수동).
 // schemas/N.json 모두 app/schemas/com.questlog.core.data.db.QuestLogDatabase/ 커밋 필수.
 @Database(
     entities = [
@@ -51,8 +55,9 @@ import com.questlog.core.data.db.entity.XpAwardEntity
         NpcEntity::class,
         EncounterLogEntity::class,
         XpAwardEntity::class,
+        WeeklyReviewEntity::class,
     ],
-    version = 8,
+    version = 9,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -72,6 +77,8 @@ abstract class QuestLogDatabase : RoomDatabase() {
     abstract fun npcDao(): NpcDao
     abstract fun encounterLogDao(): EncounterLogDao
     abstract fun claimEncounterRewardDao(): ClaimEncounterRewardDao
+    abstract fun weeklyReviewDao(): WeeklyReviewDao
+    abstract fun combatLogDao(): CombatLogDao
 }
 
 // 수동 마이그레이션: items + character_items 추가.
@@ -152,6 +159,27 @@ val MIGRATION_7_8 = object : Migration(7, 8) {
         """.trimIndent())
         db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_xp_awards_encounterId` ON `xp_awards` (`encounterId`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_xp_awards_characterId` ON `xp_awards` (`characterId`)")
+    }
+}
+
+val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `weekly_reviews` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `weekStart` TEXT NOT NULL,
+                `weekLabel` TEXT NOT NULL,
+                `completedCount` INTEGER NOT NULL,
+                `xpGained` INTEGER NOT NULL,
+                `critCount` INTEGER NOT NULL,
+                `missCount` INTEGER NOT NULL,
+                `unfinishedCount` INTEGER NOT NULL,
+                `aiSummary` TEXT,
+                `xpReward` INTEGER NOT NULL DEFAULT 200,
+                `completedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_weekly_reviews_weekStart` ON `weekly_reviews` (`weekStart`)")
     }
 }
 
