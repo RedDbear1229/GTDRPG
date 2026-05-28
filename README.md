@@ -28,12 +28,58 @@ GTD(Getting Things Done) 방법론과 D&D(Dungeons & Dragons) TRPG 시스템을 
 | [09. 개발 로드맵](docs/09_roadmap.md) | Phase별 작업 목록, 마일스톤, 우선순위 |
 | [10. 디자인 시스템](docs/10_design_system.md) | 색상, 타이포그래피, 컴포넌트 가이드 |
 
-## 빠른 시작
+## Install (ADB Sideload)
+
+Play Store 미출시 — ADB로 직접 설치합니다.
+
+### 사전 준비
+
+1. Android 기기에서 **개발자 옵션** 활성화
+   - 설정 → 휴대폰 정보 → 빌드 번호 7회 탭
+2. **USB 디버깅** 활성화
+   - 설정 → 개발자 옵션 → USB 디버깅 ON
+3. USB로 PC와 기기 연결 후 기기에서 "허용" 선택
+
+### APK 설치
+
+```bash
+# 1. 기기 연결 확인
+adb devices
+
+# 2. GitHub Releases에서 최신 APK 다운로드 후 설치
+adb install -r QuestLog-v*.apk
+
+# 설치 성공 시: "Performing Streamed Install / Success" 출력
+```
+
+### 릴리스 빌드 직접 생성
+
+```bash
+# keystore.properties 설정 후
+cp keystore.properties.template keystore.properties
+# storeFile / storePassword / keyAlias / keyPassword 입력
+
+./gradlew assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+### 로그 수집 (버그 발생 시)
+
+```bash
+# 실시간 Timber 로그
+adb logcat -s QuestLog:V
+
+# 전체 버그 리포트 (분석용 zip)
+adb bugreport bugreport-$(date +%Y%m%d).zip
+```
+
+## 빠른 시작 (개발)
 
 ```bash
 # 프로젝트 클론 후
 cd gtdrpg
 ./gradlew assembleDebug
+adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ## 핵심 루프
