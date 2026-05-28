@@ -49,7 +49,7 @@ class TaskRepositoryImpl @Inject constructor(
     override suspend fun getById(id: String): Task? =
         withContext(Dispatchers.IO) { dao.getById(id)?.toDomain() }
 
-    override suspend fun upsert(task: Task) =
+    override suspend fun upsert(task: Task): Unit =
         withContext(Dispatchers.IO) {
             dao.insert(task.toEntity())
         }
