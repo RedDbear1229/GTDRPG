@@ -8,6 +8,10 @@ import androidx.room.Update
 import com.questlog.core.data.db.entity.TaskEntity
 import kotlinx.coroutines.flow.Flow
 
+// 통계 쿼리용 DTO
+data class LifeAreaCount(val lifeArea: String, val count: Int)
+data class DayCount(val day: String, val count: Int)
+
 // Phase 1 surface — F3.1 CombatDao/CompletionDao 가 완료 원자성을 인계받기 전까지의 임시 쿼리.
 // 완료 가드 (`WHERE status='ACTIVE'`)는 F3.1 CompletionDao 트랜잭션에서 강제.
 @Dao
@@ -84,4 +88,38 @@ interface TaskDao {
           AND completedAt BETWEEN :startMillis AND :endMillis
     """)
     fun countCompletedBetween(startMillis: Long, endMillis: Long): Flow<Int>
+
+    // F5.4 통계: 생활 영역별 완료 퀘스트 수
+    @Query("""
+        SELECT lifeArea, COUNT(*) as count
+        FROM tasks
+        WHERE status = 'DONE' AND completedAt IS NOT NULL
+        GROUP BY lifeArea
+        ORDER BY count DESC
+    """)
+    suspend fun getCompletedByLifeArea(): List<LifeAreaCount>
+
+    // F5.4 통계: 최근 N일 일별 완료 퀘스트 수
+    @Query("""
+        SELECT DATE(completedAt / 1000, 'unixepoch', 'localtime') as day,
+               COUNT(*) as count
+        FROM tasks
+        WHERE status = 'DONE'
+          AND completedAt IS NOT NULL
+          AND completedAt >= :sinceMills
+        GROUP BY day
+        ORDER BY day
+    """)
+    suspend fun getCompletedDailySince(sinceMills: Long): List<DayCount>
+
+    // F5.4 통계: 스트릭 캘린더 — 완료된 날짜 목록 (최근 28일)
+    @Query("""
+        SELECT DISTINCT DATE(completedAt / 1000, 'unixepoch', 'localtime') as day
+        FROM tasks
+        WHERE status = 'DONE'
+          AND completedAt IS NOT NULL
+          AND completedAt >= :sinceMills
+        ORDER BY day
+    """)
+    suspend fun getCompletedDatesSince(sinceMills: Long): List<String>
 }

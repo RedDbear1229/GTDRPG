@@ -37,6 +37,7 @@ import com.questlog.core.ui.theme.QuestLogTheme
 import com.questlog.feature.character.CharacterSheetScreen
 import com.questlog.feature.character.LevelUpScreen
 import com.questlog.feature.encounter.EncounterLogScreen
+import com.questlog.feature.statistics.StatisticsScreen
 import com.questlog.feature.weekly.WeeklyReviewScreen
 import com.questlog.feature.npc.NpcScreen
 import com.questlog.feature.inbox.InboxScreen
@@ -112,6 +113,7 @@ private object Routes {
     const val NPC_LIST = "npc_list"
     const val ENCOUNTER_LOG = "encounter_log"
     const val WEEKLY_REVIEW = "weekly_review"
+    const val STATISTICS = "statistics"
     const val PROJECT_DETAIL = "project/{projectId}"
     const val TASK_DETAIL = "task/{taskId}"
     fun project(id: String) = "project/$id"
@@ -174,10 +176,14 @@ private fun QuestLogRoot(
             composable(Routes.JOURNAL) {
                 JournalScreen(
                     onWeeklyReview = { navController.navigate(Routes.WEEKLY_REVIEW) },
+                    onStatistics = { navController.navigate(Routes.STATISTICS) },
                 )
             }
             composable(Routes.WEEKLY_REVIEW) {
                 WeeklyReviewScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.STATISTICS) {
+                StatisticsScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.PROJECT_DETAIL) { backStack ->
                 val projectId = backStack.arguments?.getString("projectId").orEmpty()
