@@ -266,10 +266,10 @@
 | F1.1 | **v2** (구현됨) | `InboxItem`, `Task`, `Project` | 캡처·명료화 — fresh install 첫 활성 스키마 |
 | F2.1 | v3 | `Character` | 캐릭터 코어 |
 | F3.1 | v4 | `CombatLog` | D20 전투 (+ `TaskEntity` 컬럼 추가) |
-| F4.1 | v5 | `Item`, `CharacterItem` | 인벤토리 |
-| F4.2 | v6 | `Npc` | 협력자 |
-| F4.4 | v7 | `EncounterLog`, `XpAward` | 랜덤 인카운터 + 보상 원장 |
-| F4.0 | v8 | `ConsentRecord` | 프라이버시 동의 이력 |
+| F4.0 | **v5** (구현됨) | `ConsentRecord` | 프라이버시 동의 이력 |
+| F4.1 | v6 | `Item`, `CharacterItem` | 인벤토리 |
+| F4.2 | v7 | `Npc` | 협력자 |
+| F4.4 | v8 | `EncounterLog`, `XpAward` | 랜덤 인카운터 + 보상 원장 |
 | F5.x | v9 ~ v11 | `WeeklyReview`, `Achievement`, `CharacterAchievement` | 주간 리뷰·업적 |
 | F6.1 | v12 | `MemoryEntry` | 하루 1엔트리, `entryDate UNIQUE` |
 
@@ -304,9 +304,10 @@
 
 **호출 전 필수 조건**:
 ```kotlin
+// ConsentManager.canCallApi() 가 단일 게이트 — DataStore boolean 동의 플래그(aiConsentGiven 등) 추가 금지
+// ⛔ appSettings.aiConsentGiven 같은 boolean 사용 금지 — ConsentRecordDao 단일 진실 공급원 위반
 suspend fun canCallApi(): Boolean =
-    appSettings.aiConsentGiven        // 명시적 동의
-    && appSettings.claudeApiEnabled   // 기능 토글 ON
+    consentManager.canCallApi()       // isGranted(AI_OUTBOUND) && claudeApiEnabled
     && secureStorage.getApiKey() != null
 ```
 

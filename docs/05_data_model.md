@@ -4,16 +4,19 @@
 
 > **버전·도입 phase·마이그레이션 방식의 단일 진실은 §5.6.1.** 본 절은 현재 구현 / 계획 최종 두 스냅샷만 제시한다.
 
-### 5.1.1 현재 구현된 스키마 (Room v2, F1.1 시점)
+### 5.1.1 현재 구현된 스키마 (Room v5, F4.0 시점)
 
 ```
-QuestLogDatabase (Room v2 — 코드와 1:1 일치, app/src/main/java/com/questlog/core/data/db/QuestLogDatabase.kt)
-├── inbox_items            수집된 원시 항목 (F1.1)
-├── tasks                  할 일 (명료화 완료, F1.1)
-└── projects               프로젝트 (캠페인, F1.1)
+QuestLogDatabase (Room v5 — 코드와 1:1 일치, app/src/main/java/com/questlog/core/data/db/QuestLogDatabase.kt)
+├── inbox_items            수집된 원시 항목 (v2, F1.1)
+├── tasks                  할 일 (명료화 완료, v2, F1.1)
+├── projects               프로젝트 (캠페인, v2, F1.1)
+├── characters             캐릭터 정보 (v3, F2.1)
+├── combat_logs            전투 기록 (v4, F3.1)
+└── consent_records        프라이버시 동의 이력 (v5, F4.0)
 ```
 
-총 **3개 엔티티**. `schemas/2.json`이 최초의 schema JSON이며 fresh install 의 첫 활성 스키마.
+총 **6개 엔티티**. `schemas/2.json`이 최초의 schema JSON(fresh install 첫 활성 스키마). `schemas/5.json`이 현재 최신 — ARM64 빌드 환경 제약으로 아직 미커밋(x86_64 환경에서 `./gradlew :app:kspDebugKotlin` 실행 필요).
 
 ### 5.1.2 계획된 최종 스키마 (Room v12, F6.1 Memory of the Day 완료 후 — 미구현)
 
@@ -23,13 +26,13 @@ QuestLogDatabase (Room v12, F6.1 완료 시점 — 계획)
 ├── tasks                  할 일 (명료화 완료, v2, F1.1)           ✅ 구현됨
 ├── projects               프로젝트 (캠페인, v2, F1.1)             ✅ 구현됨
 ├── characters             캐릭터 정보 (v3, F2.1)                  ⏳ 미구현
-├── combat_logs            전투 기록 (v4, F3.1)                    ⏳ 미구현
-├── items                  아이템 카탈로그 (v5, F4.1)              ⏳ 미구현
-├── character_items        캐릭터-아이템 장착 상태 (v5, F4.1)      ⏳ 미구현
-├── npcs                   협력자/연락처 (v6, F4.2)                ⏳ 미구현
-├── encounter_logs         랜덤 인카운터 기록 (v7, F4.4)           ⏳ 미구현
-├── xp_awards              인카운터 보상 감사 로그 (v7, F4.4)      ⏳ 미구현
-├── consent_records        프라이버시 동의 이력 (v8, F4.0)         ⏳ 미구현
+├── combat_logs            전투 기록 (v4, F3.1)                    ✅ 구현됨
+├── consent_records        프라이버시 동의 이력 (v5, F4.0)         ✅ 구현됨
+├── items                  아이템 카탈로그 (v6, F4.1)              ⏳ 미구현
+├── character_items        캐릭터-아이템 장착 상태 (v6, F4.1)      ⏳ 미구현
+├── npcs                   협력자/연락처 (v7, F4.2)                ⏳ 미구현
+├── encounter_logs         랜덤 인카운터 기록 (v8, F4.4)           ⏳ 미구현
+├── xp_awards              인카운터 보상 감사 로그 (v8, F4.4)      ⏳ 미구현
 ├── weekly_reviews         주간 리뷰 기록 (v9, F5.x)               ⏳ 미구현
 ├── achievements           업적 카탈로그 (v10, F5.x)               ⏳ 미구현
 ├── character_achievements 달성한 업적 (junction, v11, F5.x)       ⏳ 미구현
@@ -1069,10 +1072,10 @@ class Converters @Inject constructor(
 | **2** | F1.1 GTD MVP | `InboxItemEntity`, `TaskEntity`, `ProjectEntity` 신규 — `@Database(version = 2)`를 처음으로 활성화 | **v2가 첫 활성 스키마 (fresh install).** AutoMigration(1, 2) **불필요** — 어떤 디바이스에도 v1이 persisted된 적이 없으므로 Room은 v2 테이블을 fresh로 생성. `schemas/2.json`이 최초의 schema JSON. |
 | **3** | F2.1 캐릭터 | `CharacterEntity` 신규 | `@AutoMigration(2, 3)` |
 | **4** | F3.1 D20 전투 | `CombatLogEntity` 신규 + `TaskEntity.completedAt`/`xpAwarded` 컬럼 추가 | **수동** `MIGRATION_3_4` (NOT NULL 기본값 충돌 회피) |
-| **5** | F4.1 아이템 | `ItemEntity`, `CharacterItemEntity`(junction) 신규 + 인덱스 | `@AutoMigration(4, 5)` |
-| **6** | F4.2 NPC | `NpcEntity` 신규 (`source: enum {MANUAL, PICKER}`) | `@AutoMigration(5, 6)` |
-| **7** | F4.4 인카운터 | `EncounterLogEntity`, `XpAwardEntity` 신규 + `UNIQUE(encounter_id) ON xp_awards` | **수동** `MIGRATION_6_7` (UNIQUE 인덱스 강제) |
-| **8** | F4.0 프라이버시 기반 | `ConsentRecordEntity` 신규 (정책 버전 추적, Codex 2차 지적 #4 반영) | `@AutoMigration(7, 8)` |
+| **5** | F4.0 프라이버시 기반 | `ConsentRecordEntity` 신규 (정책 버전 추적, Codex 2차 지적 #4 반영) — **구현 완료** | `@AutoMigration(4, 5)` |
+| **6** | F4.1 아이템 | `ItemEntity`, `CharacterItemEntity`(junction) 신규 + 인덱스 | `@AutoMigration(5, 6)` |
+| **7** | F4.2 NPC | `NpcEntity` 신규 (`source: enum {MANUAL, PICKER}`) | `@AutoMigration(6, 7)` |
+| **8** | F4.4 인카운터 | `EncounterLogEntity`, `XpAwardEntity` 신규 + `UNIQUE(encounter_id) ON xp_awards` | **수동** `MIGRATION_7_8` (UNIQUE 인덱스 강제) |
 | **9** | F5.x WeeklyReview | `WeeklyReviewEntity` 신규 — 주간 리뷰 결과 영속화 | `@AutoMigration(8, 9)` |
 | **10** | F5.x Achievement | `AchievementEntity` 신규 — 업적 카탈로그 | `@AutoMigration(9, 10)` |
 | **11** | F5.x Achievement 연결 | `CharacterAchievementEntity` 신규 (junction) + 인덱스 | `@AutoMigration(10, 11)` |
@@ -1101,8 +1104,8 @@ val MIGRATION_3_4 = object : Migration(3, 4) {
     }
 }
 
-// v6 → v7 (F4.4): 보상 감사 무결성 — UNIQUE(encounter_id) 강제
-val MIGRATION_6_7 = object : Migration(6, 7) {
+// v7 → v8 (F4.4): 보상 감사 무결성 — UNIQUE(encounter_id) 강제
+val MIGRATION_7_8 = object : Migration(7, 8) {
     override fun migrate(database: SupportSQLiteDatabase) {
         database.execSQL("""
             CREATE TABLE IF NOT EXISTS encounter_logs (
@@ -1199,13 +1202,14 @@ abstract class QuestLogDatabase : RoomDatabase() {
         CharacterEntity::class,
         // Phase 3 (v4, F3.1) — 미구현
         CombatLogEntity::class,
-        // Phase 4 (v5-v8) — 미구현
-        ItemEntity::class,                 // v5 (F4.1)
-        CharacterItemEntity::class,        // v5 (F4.1)
-        NpcEntity::class,                  // v6 (F4.2)
-        EncounterLogEntity::class,         // v7 (F4.4)
-        XpAwardEntity::class,              // v7 (F4.4)
-        ConsentRecordEntity::class,        // v8 (F4.0)
+        // Phase 4 F4.0 (v5) — 구현 완료
+        ConsentRecordEntity::class,        // v5 (F4.0)
+        // Phase 4 F4.1~F4.4 (v6-v8) — 미구현
+        ItemEntity::class,                 // v6 (F4.1)
+        CharacterItemEntity::class,        // v6 (F4.1)
+        NpcEntity::class,                  // v7 (F4.2)
+        EncounterLogEntity::class,         // v8 (F4.4)
+        XpAwardEntity::class,              // v8 (F4.4)
         // Phase 5 (v9-v11) — 미구현
         WeeklyReviewEntity::class,         // v9
         AchievementEntity::class,          // v10
@@ -1220,10 +1224,10 @@ abstract class QuestLogDatabase : RoomDatabase() {
         // v2 가 fresh install 의 첫 활성 스키마.
         AutoMigration(from = 2, to = 3),       // F2.1 CharacterEntity
         // 3 → 4 는 수동 (TaskEntity 컬럼 추가, §5.6.2 MIGRATION_3_4)
-        AutoMigration(from = 4, to = 5),       // F4.1 Item + CharacterItem
-        AutoMigration(from = 5, to = 6),       // F4.2 Npc
-        // 6 → 7 은 수동 (UNIQUE(encounterId) 강제, §5.6.2 MIGRATION_6_7)
-        AutoMigration(from = 7, to = 8),       // F4.0 ConsentRecord
+        AutoMigration(from = 4, to = 5),       // F4.0 ConsentRecord — 구현 완료
+        AutoMigration(from = 5, to = 6),       // F4.1 Item + CharacterItem
+        AutoMigration(from = 6, to = 7),       // F4.2 Npc
+        // 7 → 8 은 수동 (UNIQUE(encounterId) 강제, §5.6.2 MIGRATION_7_8)
         AutoMigration(from = 8, to = 9),       // F5.x WeeklyReview
         AutoMigration(from = 9, to = 10),      // F5.x Achievement
         AutoMigration(from = 10, to = 11),     // F5.x CharacterAchievement
@@ -1238,14 +1242,15 @@ abstract class QuestLogDatabase : RoomDatabase() {
     abstract fun characterDao(): CharacterDao              // v3 (F2.1)
     abstract fun combatLogDao(): CombatLogDao              // v4 (F3.1)
     abstract fun completionDao(): CompletionDao            // F3.1 원자성 DAO
-    abstract fun npcDao(): NpcDao                          // v6 (F4.2)
-    abstract fun itemDao(): ItemDao                        // v5 (F4.1)
-    abstract fun characterItemDao(): CharacterItemDao      // v5 (F4.1)
-    abstract fun encounterLogDao(): EncounterLogDao        // v7 (F4.4)
+    abstract fun consentRecordDao(): ConsentRecordDao      // v5 (F4.0) — 구현 완료
+    abstract fun npcDao(): NpcDao                          // v7 (F4.2)
+    abstract fun itemDao(): ItemDao                        // v6 (F4.1)
+    abstract fun characterItemDao(): CharacterItemDao      // v6 (F4.1)
+    abstract fun encounterLogDao(): EncounterLogDao        // v8 (F4.4)
     abstract fun claimEncounterRewardDao(): ClaimEncounterRewardDao  // F4.4 원자성 DAO
     abstract fun weeklyReviewDao(): WeeklyReviewDao        // v9 (F5.x)
     abstract fun achievementDao(): AchievementDao          // v10 (F5.x)
-    abstract fun consentRecordDao(): ConsentRecordDao      // v8 (F4.0)
+
     abstract fun memoryDao(): MemoryDao                    // v12 (F6.1)
 
     companion object {

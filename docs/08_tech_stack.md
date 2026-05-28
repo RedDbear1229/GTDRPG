@@ -1051,7 +1051,7 @@ object NetworkModule {
 
 ### DatabaseModule
 
-> 🔴 **Room 부트스트랩 계약** (docs/05_data_model.md §5.6.1 SSOT): F0.3은 `QuestLogDatabase` 파일 스켈레톤만 두고 `@Database` 어노테이션을 비워둔다. F1.1에서 `@Database(version = 2)`로 처음 활성화하며, **이때 `MIGRATION_1_2` / `AutoMigration(1, 2)`는 작성하지 않는다** — v1은 어떤 디바이스에도 persisted된 적 없는 의미적 placeholder이기 때문. 아래 예제의 `.addMigrations(...)` 호출은 §5.6.1·§5.6.4에 등재된 수동 마이그레이션(`MIGRATION_3_4`, `MIGRATION_6_7`)만 포함해야 한다.
+> 🔴 **Room 부트스트랩 계약** (docs/05_data_model.md §5.6.1 SSOT): F0.3은 `QuestLogDatabase` 파일 스켈레톤만 두고 `@Database` 어노테이션을 비워둔다. F1.1에서 `@Database(version = 2)`로 처음 활성화하며, **이때 `MIGRATION_1_2` / `AutoMigration(1, 2)`는 작성하지 않는다** — v1은 어떤 디바이스에도 persisted된 적 없는 의미적 placeholder이기 때문. 아래 예제의 `.addMigrations(...)` 호출은 §5.6.1·§5.6.4에 등재된 수동 마이그레이션(`MIGRATION_3_4`, `MIGRATION_7_8`)만 포함해야 한다.
 
 ```kotlin
 // core/data/di/DatabaseModule.kt
@@ -1070,7 +1070,7 @@ object DatabaseModule {
             // ⛔ MIGRATION_1_2 / AutoMigration(1, 2) 금지 — v1은 의미적 placeholder
             //    (docs/05_data_model.md §5.6.1 v1 row 참조)
             // ✅ 수동 마이그레이션만 등록. AutoMigration은 @Database(autoMigrations=...)에서 선언.
-            .addMigrations(MIGRATION_3_4, MIGRATION_6_7)
+            .addMigrations(MIGRATION_3_4, MIGRATION_7_8)
             .build()
 
     @Provides fun provideInboxItemDao(db: QuestLogDatabase) = db.inboxItemDao()
