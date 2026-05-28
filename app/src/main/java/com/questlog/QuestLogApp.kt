@@ -3,6 +3,7 @@ package com.questlog
 import android.app.Application
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.questlog.core.notification.NotificationHelper
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
 import javax.inject.Inject
@@ -22,5 +23,6 @@ class QuestLogApp : Application(), Configuration.Provider {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
+        NotificationHelper.createChannels(this)
     }
 }

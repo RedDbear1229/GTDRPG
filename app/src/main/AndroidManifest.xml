@@ -5,6 +5,8 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- F4.5: 음성 캡처 — ConsentManager.canUseMicrophone() 게이트 통과 후에만 SpeechRecognizer 호출 -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- F5.5: 알림 — Android 13+ (API 33+) 런타임 권한. 하위 버전은 자동 허용 -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".QuestLogApp"

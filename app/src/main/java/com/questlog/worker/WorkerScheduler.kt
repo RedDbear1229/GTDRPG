@@ -4,12 +4,10 @@ import android.content.Context
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
-import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
-import java.time.temporal.TemporalAdjusters
 import java.util.concurrent.TimeUnit
 
 object WorkerScheduler {
@@ -21,54 +19,66 @@ object WorkerScheduler {
     fun schedule(context: Context) {
         val wm = WorkManager.getInstance(context)
 
-        val hpResetRequest = PeriodicWorkRequestBuilder<HpResetAndStreakWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(millisUntilMidnight(), TimeUnit.MILLISECONDS)
-            .build()
-        wm.enqueueUniquePeriodicWork(HP_RESET_WORK, ExistingPeriodicWorkPolicy.KEEP, hpResetRequest)
-
-        val encounterRequest = PeriodicWorkRequestBuilder<RandomEncounterWorker>(12, TimeUnit.HOURS)
-            .build()
+        // 자정 HP/스트릭 리셋
         wm.enqueueUniquePeriodicWork(
-            RandomEncounterWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            encounterRequest,
+            HP_RESET_WORK, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<HpResetAndStreakWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(millisUntil(0, 0), TimeUnit.MILLISECONDS)
+                .build(),
         )
 
-        val expirationRequest = PeriodicWorkRequestBuilder<EncounterExpirationWorker>(15, TimeUnit.MINUTES)
-            .build()
+        // 랜덤 인카운터 생성 (12시간 주기)
         wm.enqueueUniquePeriodicWork(
-            EncounterExpirationWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            expirationRequest,
+            RandomEncounterWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<RandomEncounterWorker>(12, TimeUnit.HOURS).build(),
         )
 
-        // 주간 리뷰 알림: 매일 10:00 실행, 토요일에만 실제 알림 (Worker 내부 가드).
-        val weeklyReviewRequest = PeriodicWorkRequestBuilder<WeeklyReviewReminderWorker>(1, TimeUnit.DAYS)
-            .setInitialDelay(millisUntil10am(), TimeUnit.MILLISECONDS)
-            .build()
+        // 인카운터 만료 처리 (15분 주기)
         wm.enqueueUniquePeriodicWork(
-            WeeklyReviewReminderWorker.WORK_NAME,
-            ExistingPeriodicWorkPolicy.KEEP,
-            weeklyReviewRequest,
+            EncounterExpirationWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<EncounterExpirationWorker>(15, TimeUnit.MINUTES).build(),
+        )
+
+        // 알림 워커 (F5.5)
+        wm.enqueueUniquePeriodicWork(
+            DailyReminderWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<DailyReminderWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(millisUntil(8, 0), TimeUnit.MILLISECONDS)
+                .build(),
+        )
+        wm.enqueueUniquePeriodicWork(
+            DeadlineReminderWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<DeadlineReminderWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(millisUntil(9, 0), TimeUnit.MILLISECONDS)
+                .build(),
+        )
+        wm.enqueueUniquePeriodicWork(
+            HpCrisisWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<HpCrisisWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(millisUntil(12, 0), TimeUnit.MILLISECONDS)
+                .build(),
+        )
+        wm.enqueueUniquePeriodicWork(
+            StreakRiskWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<StreakRiskWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(millisUntil(21, 0), TimeUnit.MILLISECONDS)
+                .build(),
+        )
+        wm.enqueueUniquePeriodicWork(
+            WeeklyReviewReminderWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<WeeklyReviewReminderWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(millisUntil(10, 0), TimeUnit.MILLISECONDS)
+                .build(),
         )
     }
 
-    private fun millisUntilMidnight(): Long {
-        val zone = ZoneId.systemDefault()
-        val midnight = LocalDate.now(zone)
-            .plusDays(1)
-            .atStartOfDay(zone)
-            .toInstant()
-            .toEpochMilli()
-        return (midnight - Instant.now().toEpochMilli()).coerceAtLeast(0L)
-    }
-
-    private fun millisUntil10am(): Long {
+    // 다음 지정 시각(시:분)까지 남은 밀리초. 이미 지났으면 내일 같은 시각.
+    private fun millisUntil(hour: Int, minute: Int): Long {
         val zone = ZoneId.systemDefault()
         val now = Instant.now()
-        val target10am = LocalDate.now(zone).atTime(LocalTime.of(10, 0)).atZone(zone).toInstant()
-        val next10am = if (now.isBefore(target10am)) target10am
-        else LocalDate.now(zone).plusDays(1).atTime(LocalTime.of(10, 0)).atZone(zone).toInstant()
-        return (next10am.toEpochMilli() - now.toEpochMilli()).coerceAtLeast(0L)
+        val target = LocalDate.now(zone).atTime(LocalTime.of(hour, minute)).atZone(zone).toInstant()
+        val next = if (now.isBefore(target)) target
+        else LocalDate.now(zone).plusDays(1).atTime(LocalTime.of(hour, minute)).atZone(zone).toInstant()
+        return (next.toEpochMilli() - now.toEpochMilli()).coerceAtLeast(0L)
     }
 }
