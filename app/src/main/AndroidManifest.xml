@@ -3,6 +3,8 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- F4.5: 음성 캡처 — ConsentManager.canUseMicrophone() 게이트 통과 후에만 SpeechRecognizer 호출 -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <application
         android:name=".QuestLogApp"

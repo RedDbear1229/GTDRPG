@@ -38,4 +38,7 @@ class InboxItemRepositoryImpl @Inject constructor(
 
     override suspend fun delete(id: String) =
         withContext(Dispatchers.IO) { dao.delete(id) }
+
+    override suspend fun clearVoiceTranscripts(): Int =
+        withContext(Dispatchers.IO) { dao.clearVoiceTranscripts() }
 }

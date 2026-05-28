@@ -80,7 +80,9 @@ fun InboxScreen(
         QuickCaptureSheet(
             onDismiss = viewModel::dismissSheet,
             onSubmit = viewModel::captureFromSheet,
+            onVoiceCapture = viewModel::captureFromVoice,
             isSubmitting = state.isCapturing,
+            microphoneConsented = state.microphoneConsented,
         )
     }
 

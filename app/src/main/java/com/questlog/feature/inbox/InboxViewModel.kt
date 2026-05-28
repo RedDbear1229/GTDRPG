@@ -2,6 +2,7 @@ package com.questlog.feature.inbox
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.questlog.core.data.privacy.ConsentManager
 import com.questlog.core.domain.model.CaptureSource
 import com.questlog.core.domain.model.InboxItem
 import com.questlog.core.domain.repository.InboxItemRepository
@@ -24,6 +25,7 @@ data class InboxUiState(
     val items: List<InboxItem> = emptyList(),
     val isSheetVisible: Boolean = false,
     val isCapturing: Boolean = false,
+    val microphoneConsented: Boolean = false,
     val error: String? = null,
 )
 
@@ -34,11 +36,17 @@ sealed class InboxEvent {
 @HiltViewModel
 class InboxViewModel @Inject constructor(
     private val repository: InboxItemRepository,
+    private val consentManager: ConsentManager,
 ) : ViewModel() {
 
     private val sheetVisible = MutableStateFlow(false)
     private val capturing = MutableStateFlow(false)
     private val errorState = MutableStateFlow<String?>(null)
+    private val micConsented = MutableStateFlow(false)
+
+    init {
+        viewModelScope.launch { micConsented.value = consentManager.canUseMicrophone() }
+    }
 
     private val itemsFlow = repository.observeUnclarified()
         .catch { e ->
@@ -51,12 +59,14 @@ class InboxViewModel @Inject constructor(
         itemsFlow,
         sheetVisible,
         capturing,
+        micConsented,
         errorState,
-    ) { items, sheet, busy, err ->
+    ) { items, sheet, busy, mic, err ->
         InboxUiState(
             items = items,
             isSheetVisible = sheet,
             isCapturing = busy,
+            microphoneConsented = mic,
             error = err,
         )
     }.stateIn(
@@ -77,6 +87,13 @@ class InboxViewModel @Inject constructor(
     fun captureFromSheet(text: String) = capture(text, CaptureSource.APP, closeSheetAfter = true)
 
     fun captureFromShare(text: String) = capture(text, CaptureSource.SHARE, closeSheetAfter = false)
+
+    // STT 결과 텍스트를 Inbox에 저장. 권한 재확인은 UI 레이어(MicrophonePermissionGate)가 담당.
+    fun captureFromVoice(transcribedText: String) = capture(transcribedText, CaptureSource.VOICE, closeSheetAfter = true)
+
+    fun refreshMicrophoneConsent() {
+        viewModelScope.launch { micConsented.value = consentManager.canUseMicrophone() }
+    }
 
     fun delete(id: String) {
         viewModelScope.launch {

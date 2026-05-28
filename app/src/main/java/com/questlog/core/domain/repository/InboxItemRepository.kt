@@ -11,4 +11,5 @@ interface InboxItemRepository {
     suspend fun getById(id: String): InboxItem?
     suspend fun update(item: InboxItem)
     suspend fun delete(id: String)
+    suspend fun clearVoiceTranscripts(): Int
 }

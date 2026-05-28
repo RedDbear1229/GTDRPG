@@ -27,4 +27,8 @@ interface InboxItemDao {
 
     @Query("DELETE FROM inbox_items WHERE id = :id")
     suspend fun delete(id: String)
+
+    // 음성 텍스트만 삭제 — rawText(사용자 확정 제목)는 보존
+    @Query("UPDATE inbox_items SET transcribedText = NULL WHERE transcribedText IS NOT NULL")
+    suspend fun clearVoiceTranscripts(): Int
 }
