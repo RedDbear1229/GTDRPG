@@ -1,7 +1,15 @@
 package com.questlog.feature.combat
 
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.InfiniteRepeatableSpec
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +36,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -63,11 +72,22 @@ fun D20RollSheet(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            when {
-                state.alreadyCompleted -> AlreadyCompletedContent()
-                state.error != null -> ErrorContent(state.error!!)
-                state.isRolling -> RollingContent()
-                state.result != null -> ResultContent(state.result!!)
+            AnimatedContent(
+                targetState = when {
+                    state.alreadyCompleted -> "already"
+                    state.error != null -> "error"
+                    state.isRolling -> "rolling"
+                    else -> "result"
+                },
+                transitionSpec = { (scaleIn(tween(350)) + fadeIn(tween(350))).togetherWith(fadeOut(tween(200))) },
+                label = "combat_state",
+            ) { targetKey ->
+                when (targetKey) {
+                    "already" -> AlreadyCompletedContent()
+                    "error" -> ErrorContent(state.error ?: "")
+                    "rolling" -> RollingContent()
+                    else -> state.result?.let { ResultContent(it) }
+                }
             }
 
             Spacer(Modifier.height(8.dp))
@@ -85,7 +105,16 @@ fun D20RollSheet(
 
 @Composable
 private fun RollingContent() {
-    D20Die(number = "?", color = MaterialTheme.colorScheme.primary)
+    val infiniteTransition = rememberInfiniteTransition(label = "die_spin")
+    val rotation by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = InfiniteRepeatableSpec(tween(600), RepeatMode.Restart),
+        label = "die_rotation",
+    )
+    Box(modifier = Modifier.graphicsLayer { rotationY = rotation }) {
+        D20Die(number = "?", color = MaterialTheme.colorScheme.primary)
+    }
     Text("D20 굴리는 중...", style = MaterialTheme.typography.titleMedium)
 }
 

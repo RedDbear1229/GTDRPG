@@ -31,6 +31,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.collectAsState
 import com.questlog.core.data.datastore.OnboardingPreferences
 import com.questlog.core.ui.theme.QuestLogTheme
@@ -163,6 +168,10 @@ private fun QuestLogRoot(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
+            enterTransition = { slideInHorizontally(tween(280)) { it / 4 } + fadeIn(tween(280)) },
+            exitTransition = { slideOutHorizontally(tween(280)) { -it / 4 } + fadeOut(tween(280)) },
+            popEnterTransition = { slideInHorizontally(tween(280)) { -it / 4 } + fadeIn(tween(280)) },
+            popExitTransition = { slideOutHorizontally(tween(280)) { it / 4 } + fadeOut(tween(280)) },
         ) {
             composable(Routes.INBOX) {
                 InboxScreen(viewModel = inboxViewModel)

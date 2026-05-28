@@ -136,7 +136,9 @@ private fun InboxList(
                 item = item,
                 onClick = { onClick(item.id) },
                 onDelete = { onDelete(item.id) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .animateItem(),
             )
         }
     }
