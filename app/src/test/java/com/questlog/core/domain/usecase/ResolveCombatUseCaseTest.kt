@@ -41,8 +41,11 @@ class ResolveCombatUseCaseTest {
     )
 
     private fun makeUseCase(fixedRoll: Int): ResolveCombatUseCase {
+        val raw = fixedRoll - 1
         val random = object : Random() {
-            override fun nextBits(bitCount: Int): Int = fixedRoll - 1  // nextInt(1,21) = fixedRoll
+            // Mask by bitCount so power-of-2 list indices don't go out of bounds.
+            override fun nextBits(bitCount: Int): Int =
+                if (bitCount == 0) 0 else raw and ((1 shl bitCount) - 1)
         }
         return ResolveCombatUseCase(random)
     }
@@ -63,20 +66,20 @@ class ResolveCombatUseCaseTest {
 
     @Test
     fun `공격 굴림이 AC 이상이면 Hit`() {
-        // CR 2 → monsterAC = 11, STR+3 + profBonus+2 + D20 = 공격 굴림
-        // D20=10 → totalAttack = 10+3+2=15 ≥ 11 → Hit
+        // CR 2 → monsterAC = 12 (cr < 3f branch), STR+3 + profBonus+2 + D20 = 공격 굴림
+        // D20=10 → totalAttack = 10+3+2=15 ≥ 12 → Hit
         val result = makeUseCase(10)(baseTask, baseCharacter)
         assertInstanceOf(CombatResult.Hit::class.java, result)
         val hit = result as CombatResult.Hit
         assertEquals(10, hit.d20Result)
         assertEquals(15, hit.totalAttack)
-        assertEquals(11, hit.monsterAC)
+        assertEquals(12, hit.monsterAC)
         assertTrue(hit.xpGained > 0)
     }
 
     @Test
     fun `공격 굴림이 AC 미만이면 Miss`() {
-        // CR 2 → monsterAC = 11, D20=2 → totalAttack = 2+3+2=7 < 11 → Miss
+        // CR 2 → monsterAC = 12, D20=2 → totalAttack = 2+3+2=7 < 12 → Miss
         val result = makeUseCase(2)(baseTask, baseCharacter)
         assertInstanceOf(CombatResult.Miss::class.java, result)
         val miss = result as CombatResult.Miss

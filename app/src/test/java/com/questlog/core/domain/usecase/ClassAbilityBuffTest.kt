@@ -33,9 +33,11 @@ class ClassAbilityBuffTest {
         monsterType = MonsterType.ORC,
     )
 
-    // D20 = 5, STR=0, prof=2 → 7 < AC16 = Miss (버프 없으면)
+    // D20 = 5, STR=0, prof=2 → 7 < AC17(CR10) = Miss (버프 없으면)
     private fun missRoll() = object : Random() {
-        override fun nextBits(bitCount: Int): Int = 4  // nextInt(1,21) = 5
+        private val raw = 4  // nextInt(1,21) = 5
+        override fun nextBits(bitCount: Int): Int =
+            if (bitCount == 0) 0 else raw and ((1 shl bitCount) - 1)
     }
 
     @Test
@@ -47,10 +49,10 @@ class ClassAbilityBuffTest {
 
     @Test
     fun `ATTACK_BONUS 버프 — 충분한 보너스로 Miss → Hit 전환`() {
-        // D20=5, STR=0, prof=2 → 7 < AC16. +9 보너스면 16 = Hit
+        // D20=5, STR=0, prof=2 → 7 < AC17(CR10). +10 보너스면 totalAttack=17 = Hit
         val useCase = ResolveCombatUseCase(random = missRoll())
         val noBuffResult = useCase(task, character)
-        val buffResult = useCase(task, character, activeBuff = "ATTACK_BONUS:9")
+        val buffResult = useCase(task, character, activeBuff = "ATTACK_BONUS:10")
 
         assertTrue(noBuffResult is CombatResult.Miss)
         assertTrue(buffResult is CombatResult.Hit, "ATK +9 버프 시 Hit이어야 함")
@@ -60,7 +62,9 @@ class ClassAbilityBuffTest {
     fun `XP_MULTIPLIER 버프 — XP 1_5배 적용`() {
         // D20 = 20 강제 (크리티컬)
         val critRoll = object : Random() {
-            override fun nextBits(bitCount: Int): Int = 19  // nextInt(1,21) = 20
+            private val raw = 19  // nextInt(1,21) = 20
+            override fun nextBits(bitCount: Int): Int =
+                if (bitCount == 0) 0 else raw and ((1 shl bitCount) - 1)
         }
         val useCase1 = ResolveCombatUseCase(random = critRoll)
         val useCase2 = ResolveCombatUseCase(random = critRoll)
@@ -84,7 +88,9 @@ class ClassAbilityBuffTest {
     fun `CRIT_THRESHOLD 버프 — D20 = 15 크리티컬 처리`() {
         // D20 = 15 강제
         val roll15 = object : Random() {
-            override fun nextBits(bitCount: Int): Int = 14  // nextInt(1,21) = 15
+            private val raw = 14  // nextInt(1,21) = 15
+            override fun nextBits(bitCount: Int): Int =
+                if (bitCount == 0) 0 else raw and ((1 shl bitCount) - 1)
         }
         val useCase = ResolveCombatUseCase(random = roll15)
         val result = useCase(task, character, activeBuff = "CRIT_THRESHOLD:15")

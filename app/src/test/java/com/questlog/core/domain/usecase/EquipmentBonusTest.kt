@@ -60,13 +60,14 @@ class EquipmentBonusTest {
         acquiredAt = 0L, characterId = "char-1", acquiredFromTaskId = null,
     )
 
-    // D20=11: STR 0 + proficiency 2 + weapon+2 = 15 ≥ CR2 AC(11) → Hit
+    // D20=8: STR 0 + proficiency 2 = 10 < CR2 AC(12) → Miss; with weapon+2 → 12 = Hit
     private fun makeUseCase(fixedRoll: Int) = ResolveCombatUseCase(
         random = object : Random() {
             private var callCount = 0
             override fun nextBits(bitCount: Int): Int {
                 callCount++
-                return if (callCount == 1) fixedRoll - 1 else 0
+                val raw = if (callCount == 1) fixedRoll - 1 else 0
+                return if (bitCount == 0) 0 else raw and ((1 shl bitCount) - 1)
             }
         }
     )

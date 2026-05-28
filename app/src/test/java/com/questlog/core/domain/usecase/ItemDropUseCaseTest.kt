@@ -14,9 +14,9 @@ class ItemDropUseCaseTest {
     private fun useCaseWithFloat(fixedFloat: Float): ItemDropUseCase {
         val random = object : Random() {
             override fun nextBits(bitCount: Int): Int {
-                // nextFloat() 가 nextBits(24) / 2^24 를 반환하도록 역산
                 val target = (fixedFloat * (1 shl 24)).toInt().coerceIn(0, (1 shl 24) - 1)
-                return target
+                // Mask by bitCount so power-of-2 list indices don't go out of bounds.
+                return if (bitCount == 0) 0 else target and ((1 shl bitCount) - 1)
             }
         }
         return ItemDropUseCase(random)
