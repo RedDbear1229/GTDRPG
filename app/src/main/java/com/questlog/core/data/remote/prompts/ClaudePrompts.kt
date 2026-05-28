@@ -109,7 +109,7 @@ HP 손실: $hpLost
         character: Character,
     ) = PromptPair(
         system = SYS_CLARIFY,
-        user = """수집된 항목: "${rawText.take(50)}"
+        user = """수집된 항목: "$rawText"
 캐릭터 클래스: ${character.classType.label}
 
 이 항목의 다음 물리적 행동 3개를 제안해주세요.
