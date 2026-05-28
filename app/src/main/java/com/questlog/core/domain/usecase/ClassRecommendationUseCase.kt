@@ -2,10 +2,11 @@ package com.questlog.core.domain.usecase
 
 import com.questlog.core.domain.model.CharacterClass
 import com.questlog.core.domain.model.ClassQuiz
+import javax.inject.Inject
 
 // 퀴즈 답변(question id → option index) 을 받아 클래스별 총점 계산 후 상위 3 개 반환.
 // 동점이면 CharacterClass.ordinal 순으로 안정 정렬.
-class ClassRecommendationUseCase {
+class ClassRecommendationUseCase @Inject constructor() {
 
     // answers: questionId(1-based) → 선택한 optionIndex(0-based)
     fun recommend(answers: Map<Int, Int>): List<CharacterClass> {

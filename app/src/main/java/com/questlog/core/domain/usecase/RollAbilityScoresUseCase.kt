@@ -1,6 +1,7 @@
 package com.questlog.core.domain.usecase
 
 import com.questlog.core.domain.model.AbilityType
+import javax.inject.Inject
 import kotlin.random.Random
 
 data class AbilityScores(
@@ -24,8 +25,9 @@ data class AbilityScores(
 // 4d6 drop lowest: 주사위 4개 굴린 뒤 최솟값 하나 제거, 나머지 3개 합산.
 // docs/04_game_mechanics.md §4.2 SSOT. random 주입으로 단위 테스트 가능.
 class RollAbilityScoresUseCase(
-    private val random: Random = Random.Default,
+    private val random: Random,
 ) {
+    @Inject constructor() : this(Random.Default)
     fun rollAll(): AbilityScores = AbilityScores(
         strength = rollOne(),
         dexterity = rollOne(),
