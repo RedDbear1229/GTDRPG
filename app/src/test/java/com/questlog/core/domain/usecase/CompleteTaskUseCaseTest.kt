@@ -10,6 +10,7 @@ import com.questlog.core.domain.model.LifeArea
 import com.questlog.core.domain.model.MonsterType
 import com.questlog.core.domain.model.Task
 import com.questlog.core.domain.model.TaskStatus
+import com.questlog.core.domain.repository.BuffRepository
 import com.questlog.core.domain.repository.CharacterRepository
 import com.questlog.core.domain.repository.CompletionRepository
 import com.questlog.core.domain.repository.TaskRepository
@@ -77,6 +78,12 @@ class CompleteTaskUseCaseTest {
             override suspend fun completeTask(taskId: String, log: CombatLog, updatedCharacter: Character, now: Long) = alwaysSuccess
         }
 
+    private val fakeBuffRepo = object : BuffRepository {
+        override suspend fun getActiveBuff(): String? = null
+        override suspend fun setActiveBuff(code: String) {}
+        override suspend fun clear() {}
+    }
+
     private fun makeUseCase(
         taskRepo: TaskRepository = fakeTaskRepo(task),
         charRepo: CharacterRepository = fakeCharRepo(character),
@@ -86,7 +93,7 @@ class CompleteTaskUseCaseTest {
         val random = object : Random() {
             override fun nextBits(bitCount: Int): Int = fixedRoll - 1
         }
-        return CompleteTaskUseCase(taskRepo, charRepo, completionRepo, ResolveCombatUseCase(random))
+        return CompleteTaskUseCase(taskRepo, charRepo, completionRepo, ResolveCombatUseCase(random), fakeBuffRepo)
     }
 
     @Test
