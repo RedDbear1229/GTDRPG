@@ -13,16 +13,20 @@ import com.questlog.core.data.db.dao.ConsentRecordDao
 import com.questlog.core.data.db.dao.InboxItemDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
+import com.questlog.core.data.db.dao.ClaimEncounterRewardDao
+import com.questlog.core.data.db.dao.EncounterLogDao
 import com.questlog.core.data.db.dao.NpcDao
 import com.questlog.core.data.db.entity.CharacterEntity
 import com.questlog.core.data.db.entity.CharacterItemEntity
 import com.questlog.core.data.db.entity.CombatLogEntity
 import com.questlog.core.data.db.entity.ConsentRecordEntity
+import com.questlog.core.data.db.entity.EncounterLogEntity
 import com.questlog.core.data.db.entity.InboxItemEntity
 import com.questlog.core.data.db.entity.ItemEntity
 import com.questlog.core.data.db.entity.NpcEntity
 import com.questlog.core.data.db.entity.ProjectEntity
 import com.questlog.core.data.db.entity.TaskEntity
+import com.questlog.core.data.db.entity.XpAwardEntity
 
 // 스키마 버전 히스토리:
 //   v1 = 의미적 placeholder. AutoMigration(1, 2) 금지.
@@ -32,6 +36,7 @@ import com.questlog.core.data.db.entity.TaskEntity
 //   v5 = Phase 4 F4.0 — consent_records 테이블. AutoMigration(4, 5).
 //   v6 = Phase 4 F4.1 — items + character_items 테이블. MIGRATION_5_6 (수동, 부분 인덱스 포함).
 //   v7 = Phase 4 F4.2 — npcs 테이블. MIGRATION_6_7 (수동).
+//   v8 = Phase 4 F4.4 — encounter_logs + xp_awards 테이블. MIGRATION_7_8 (수동).
 // schemas/N.json 모두 app/schemas/com.questlog.core.data.db.QuestLogDatabase/ 커밋 필수.
 @Database(
     entities = [
@@ -44,8 +49,10 @@ import com.questlog.core.data.db.entity.TaskEntity
         ItemEntity::class,
         CharacterItemEntity::class,
         NpcEntity::class,
+        EncounterLogEntity::class,
+        XpAwardEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = true,
     autoMigrations = [
         AutoMigration(from = 2, to = 3),
@@ -63,6 +70,8 @@ abstract class QuestLogDatabase : RoomDatabase() {
     abstract fun consentRecordDao(): ConsentRecordDao
     abstract fun characterItemDao(): CharacterItemDao
     abstract fun npcDao(): NpcDao
+    abstract fun encounterLogDao(): EncounterLogDao
+    abstract fun claimEncounterRewardDao(): ClaimEncounterRewardDao
 }
 
 // 수동 마이그레이션: items + character_items 추가.
@@ -113,6 +122,36 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
             ON `character_items` (`characterId`, `equippedSlot`)
             WHERE isEquipped = 1
         """.trimIndent())
+    }
+}
+
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `encounter_logs` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `templateKey` TEXT NOT NULL,
+                `status` TEXT NOT NULL,
+                `generatedAt` INTEGER NOT NULL,
+                `claimedAt` INTEGER,
+                `expiresAt` INTEGER NOT NULL,
+                `rewardXp` INTEGER NOT NULL,
+                `rewardItemId` TEXT
+            )
+        """.trimIndent())
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_encounter_logs_status_expiresAt` ON `encounter_logs` (`status`, `expiresAt`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_encounter_logs_generatedAt` ON `encounter_logs` (`generatedAt`)")
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `xp_awards` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `encounterId` TEXT NOT NULL,
+                `characterId` TEXT NOT NULL,
+                `xpAmount` INTEGER NOT NULL,
+                `awardedAt` INTEGER NOT NULL
+            )
+        """.trimIndent())
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_xp_awards_encounterId` ON `xp_awards` (`encounterId`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_xp_awards_characterId` ON `xp_awards` (`characterId`)")
     }
 }
 

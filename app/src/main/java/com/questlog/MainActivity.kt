@@ -36,6 +36,7 @@ import com.questlog.core.data.datastore.OnboardingPreferences
 import com.questlog.core.ui.theme.QuestLogTheme
 import com.questlog.feature.character.CharacterSheetScreen
 import com.questlog.feature.character.LevelUpScreen
+import com.questlog.feature.encounter.EncounterLogScreen
 import com.questlog.feature.npc.NpcScreen
 import com.questlog.feature.inbox.InboxScreen
 import com.questlog.feature.inbox.InboxViewModel
@@ -108,6 +109,7 @@ private object Routes {
     const val LEVEL_UP = "level_up"
     const val SETTINGS = "settings"
     const val NPC_LIST = "npc_list"
+    const val ENCOUNTER_LOG = "encounter_log"
     const val PROJECT_DETAIL = "project/{projectId}"
     const val TASK_DETAIL = "task/{taskId}"
     fun project(id: String) = "project/$id"
@@ -194,10 +196,14 @@ private fun QuestLogRoot(
                     },
                     onSettings = { navController.navigate(Routes.SETTINGS) },
                     onNpcList = { navController.navigate(Routes.NPC_LIST) },
+                    onEncounterLog = { navController.navigate(Routes.ENCOUNTER_LOG) },
                 )
             }
             composable(Routes.NPC_LIST) {
                 NpcScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.ENCOUNTER_LOG) {
+                EncounterLogScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.LEVEL_UP) {
                 LevelUpScreen(

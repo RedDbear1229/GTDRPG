@@ -16,13 +16,27 @@ object WorkerScheduler {
     // MainActivity.onCreate / onNewIntent 에서 호출.
     // KEEP 정책: 이미 큐에 있으면 교체하지 않음 (재설치·업그레이드 후 중복 방지).
     fun schedule(context: Context) {
-        val request = PeriodicWorkRequestBuilder<HpResetAndStreakWorker>(1, TimeUnit.DAYS)
+        val wm = WorkManager.getInstance(context)
+
+        val hpResetRequest = PeriodicWorkRequestBuilder<HpResetAndStreakWorker>(1, TimeUnit.DAYS)
             .setInitialDelay(millisUntilMidnight(), TimeUnit.MILLISECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            HP_RESET_WORK,
+        wm.enqueueUniquePeriodicWork(HP_RESET_WORK, ExistingPeriodicWorkPolicy.KEEP, hpResetRequest)
+
+        val encounterRequest = PeriodicWorkRequestBuilder<RandomEncounterWorker>(12, TimeUnit.HOURS)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            RandomEncounterWorker.WORK_NAME,
             ExistingPeriodicWorkPolicy.KEEP,
-            request,
+            encounterRequest,
+        )
+
+        val expirationRequest = PeriodicWorkRequestBuilder<EncounterExpirationWorker>(15, TimeUnit.MINUTES)
+            .build()
+        wm.enqueueUniquePeriodicWork(
+            EncounterExpirationWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            expirationRequest,
         )
     }
 

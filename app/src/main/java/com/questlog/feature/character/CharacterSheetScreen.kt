@@ -37,7 +37,7 @@ import com.questlog.feature.character.tabs.AchievementsTab
 import com.questlog.feature.character.tabs.EquipmentTab
 import com.questlog.feature.character.tabs.StatsTab
 
-private val TABS = listOf("스탯", "장비", "특수능력", "업적", "NPC")
+private val TABS = listOf("스탯", "장비", "특수능력", "업적", "NPC", "인카운터")
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -45,6 +45,7 @@ fun CharacterSheetScreen(
     onLevelUp: () -> Unit,
     onSettings: () -> Unit = {},
     onNpcList: () -> Unit = {},
+    onEncounterLog: () -> Unit = {},
     viewModel: CharacterViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -108,7 +109,11 @@ fun CharacterSheetScreen(
                     Tab(
                         selected = selectedTab == idx,
                         onClick = {
-                            if (idx == 4) onNpcList() else selectedTab = idx
+                            when (idx) {
+                                4 -> onNpcList()
+                                5 -> onEncounterLog()
+                                else -> selectedTab = idx
+                            }
                         },
                         text = { Text(title) },
                     )
