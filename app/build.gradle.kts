@@ -9,9 +9,24 @@ plugins {
     alias(libs.plugins.paparazzi)
 }
 
+// keystore.properties 로드 — 파일이 없으면 CI/빌드에서 환경 변수로 대체 가능.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = java.util.Properties().apply {
+    if (keystorePropsFile.exists()) load(keystorePropsFile.inputStream())
+}
+
 android {
     namespace = "com.questlog"
     compileSdk = libs.versions.compileSdk.get().toInt()
+
+    signingConfigs {
+        create("release") {
+            storeFile = keystoreProps["storeFile"]?.let { file(it as String) }
+            storePassword = keystoreProps["storePassword"] as String?
+            keyAlias = keystoreProps["keyAlias"] as String?
+            keyPassword = keystoreProps["keyPassword"] as String?
+        }
+    }
 
     defaultConfig {
         applicationId = "com.questlog"
@@ -37,6 +52,7 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
