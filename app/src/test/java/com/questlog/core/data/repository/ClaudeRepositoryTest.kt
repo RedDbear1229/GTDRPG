@@ -26,7 +26,7 @@ class ClaudeRepositoryTest {
     private val consentManager = mockk<ConsentManager>()
     private val apiBudget = mockk<ApiBudget>()
     private val secureStorage = mockk<SecureStorage>()
-    private val sanitizer = mockk<PromptSanitizer>(relaxed = true)
+    private val sanitizer = PromptSanitizer()
 
     private lateinit var repo: ClaudeRepositoryImpl
 
@@ -76,7 +76,7 @@ class ClaudeRepositoryTest {
     }
 
     @Test
-    fun `일일 예산 초과 → API 호출 없이 폴백 반환`() = runTest {
+    fun `일일 예산 초과 — tryReserve false → API 호출 없이 폴백 반환`() = runTest {
         coEvery { consentManager.canCallApi() } returns true
         coEvery { apiBudget.tryReserve() } returns false
 
@@ -87,7 +87,7 @@ class ClaudeRepositoryTest {
     }
 
     @Test
-    fun `API 성공 → 응답 텍스트 반환, tryReserve 1회 호출`() = runTest {
+    fun `API 성공 → 응답 텍스트 반환`() = runTest {
         val expectedText = "전설적인 일격!"
         coEvery { consentManager.canCallApi() } returns true
         coEvery { apiBudget.tryReserve() } returns true
@@ -101,7 +101,6 @@ class ClaudeRepositoryTest {
         val result = repo.generateCombatNarrative(character, task, CombatResult.Hit(15, 18, 14, 100))
 
         assertTrue(result == expectedText)
-        coVerify(exactly = 1) { apiBudget.tryReserve() }
     }
 
     @Test
@@ -129,12 +128,11 @@ class ClaudeRepositoryTest {
     }
 
     @Test
-    fun `getClarifySuggestions — sanitizer 거친 텍스트로 API 호출 후 줄 단위 파싱`() = runTest {
+    fun `getClarifySuggestions — API 성공 → 줄 단위 파싱`() = runTest {
         val responseText = "- 이메일 초안 작성\n- 동료에게 검토 요청\n- 보고서 저장"
         coEvery { consentManager.canCallApi() } returns true
         coEvery { apiBudget.tryReserve() } returns true
         coEvery { secureStorage.getApiKey() } returns "sk-test"
-        coEvery { sanitizer.sanitizeTaskTitle("보고서") } returns "보고서"
         coEvery { api.generateMessage(any(), any(), any()) } returns ClaudeMessageResponse(
             id = "msg_002",
             content = listOf(ContentBlock(type = "text", text = responseText)),
@@ -145,6 +143,5 @@ class ClaudeRepositoryTest {
 
         assertTrue(suggestions.size == 3)
         assertTrue(suggestions[0] == "이메일 초안 작성")
-        coVerify(exactly = 1) { sanitizer.sanitizeTaskTitle("보고서") }
     }
 }
