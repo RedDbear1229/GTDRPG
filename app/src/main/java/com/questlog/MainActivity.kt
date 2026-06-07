@@ -53,6 +53,8 @@ import com.questlog.feature.onboarding.OnboardingScreen
 import com.questlog.feature.questboard.ProjectDetailScreen
 import com.questlog.feature.questboard.QuestBoardScreen
 import com.questlog.feature.questboard.TaskDetailScreen
+import com.questlog.feature.memory.history.MemoryHistoryScreen
+import com.questlog.feature.memory.today.MemoryTodayScreen
 import com.questlog.feature.settings.SettingsScreen
 import com.questlog.worker.WorkerScheduler
 import dagger.hilt.android.AndroidEntryPoint
@@ -119,6 +121,8 @@ private object Routes {
     const val ENCOUNTER_LOG = "encounter_log"
     const val WEEKLY_REVIEW = "weekly_review"
     const val STATISTICS = "statistics"
+    const val MEMORY_TODAY = "memory_today"
+    const val MEMORY_HISTORY = "memory_history"
     const val PROJECT_DETAIL = "project/{projectId}"
     const val TASK_DETAIL = "task/{taskId}"
     fun project(id: String) = "project/$id"
@@ -186,7 +190,18 @@ private fun QuestLogRoot(
                 JournalScreen(
                     onWeeklyReview = { navController.navigate(Routes.WEEKLY_REVIEW) },
                     onStatistics = { navController.navigate(Routes.STATISTICS) },
+                    onMemoryToday = { navController.navigate(Routes.MEMORY_TODAY) },
+                    onMemoryHistory = { navController.navigate(Routes.MEMORY_HISTORY) },
                 )
+            }
+            composable(Routes.MEMORY_TODAY) {
+                MemoryTodayScreen(
+                    onBack = { navController.popBackStack() },
+                    onHistory = { navController.navigate(Routes.MEMORY_HISTORY) },
+                )
+            }
+            composable(Routes.MEMORY_HISTORY) {
+                MemoryHistoryScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.WEEKLY_REVIEW) {
                 WeeklyReviewScreen(onBack = { navController.popBackStack() })

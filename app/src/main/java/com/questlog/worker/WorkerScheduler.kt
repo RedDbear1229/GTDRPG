@@ -70,6 +70,13 @@ object WorkerScheduler {
                 .setInitialDelay(millisUntil(10, 0), TimeUnit.MILLISECONDS)
                 .build(),
         )
+        // F6.4 Memory of the Day 리마인더 (21:00)
+        wm.enqueueUniquePeriodicWork(
+            MemoryReminderWorker.WORK_NAME, ExistingPeriodicWorkPolicy.KEEP,
+            PeriodicWorkRequestBuilder<MemoryReminderWorker>(1, TimeUnit.DAYS)
+                .setInitialDelay(millisUntil(21, 0), TimeUnit.MILLISECONDS)
+                .build(),
+        )
     }
 
     // 다음 지정 시각(시:분)까지 남은 밀리초. 이미 지났으면 내일 같은 시각.

@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.questlog.core.data.db.dao.CombatLogDao
 import com.questlog.core.data.db.dao.WeeklyReviewDao
 import com.questlog.core.data.db.entity.WeeklyReviewEntity
+import com.questlog.core.domain.model.MemoryEntry
 import com.questlog.core.domain.repository.CharacterRepository
 import com.questlog.core.domain.repository.ClaudeRepository
+import com.questlog.core.domain.repository.MemoryRepository
 import com.questlog.core.domain.repository.TaskRepository
 import com.questlog.core.domain.usecase.GainXPUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -52,6 +54,8 @@ data class WeeklyReviewUiState(
     val isGeneratingAi: Boolean = false,
     val aiSummary: String? = null,
     val error: String? = null,
+    val weekMemoryEntries: List<MemoryEntry> = emptyList(),
+    val weekDays: List<String> = emptyList(), // 이번 주 날짜 7개 "yyyy-MM-dd"
 )
 
 sealed class WeeklyReviewEvent {
@@ -66,6 +70,7 @@ class WeeklyReviewViewModel @Inject constructor(
     private val characterRepository: CharacterRepository,
     private val claudeRepository: ClaudeRepository,
     private val gainXP: GainXPUseCase,
+    private val memoryRepository: MemoryRepository,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WeeklyReviewUiState())
@@ -106,11 +111,21 @@ class WeeklyReviewViewModel @Inject constructor(
             weekLabel = weekLabel,
         )
 
+        // F6.6 이번 주 메모 로드
+        val weekMemoryEntries = runCatching {
+            memoryRepository.getThisWeekEntries(weekStartIso)
+        }.getOrElse { emptyList() }
+
+        // 이번 주 7일 날짜 목록 (월~일)
+        val weekDays = (0..6).map { monday.plusDays(it.toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE) }
+
         _uiState.update {
             it.copy(
                 weekStats = stats,
                 isAlreadyDone = alreadyDone,
                 steps = buildSteps(stats),
+                weekMemoryEntries = weekMemoryEntries,
+                weekDays = weekDays,
             )
         }
     }

@@ -4,6 +4,8 @@ import com.questlog.core.data.db.dao.CompletionDao
 import com.questlog.core.data.mapper.toEntity
 import com.questlog.core.domain.model.Character
 import com.questlog.core.domain.model.CombatLog
+import com.questlog.core.domain.model.OutcomeType
+import com.questlog.core.domain.model.TaskSummary
 import com.questlog.core.domain.repository.CompletionRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -28,4 +30,22 @@ class CompletionRepositoryImpl @Inject constructor(
             now = now,
         )
     }
+
+    override suspend fun getCompletedTaskSummariesByDate(date: String): List<TaskSummary> =
+        withContext(Dispatchers.IO) {
+            dao.getCompletedWithLogByDate(date).map { item ->
+                val outcome = when (item.d20Result) {
+                    null -> OutcomeType.NONE
+                    20 -> OutcomeType.STRONG_HIT
+                    1 -> OutcomeType.MISS
+                    else -> OutcomeType.WEAK_HIT
+                }
+                TaskSummary(
+                    id = item.taskId,
+                    title = item.taskTitle,
+                    outcomeType = outcome,
+                    xpGained = item.xpGained,
+                )
+            }
+        }
 }

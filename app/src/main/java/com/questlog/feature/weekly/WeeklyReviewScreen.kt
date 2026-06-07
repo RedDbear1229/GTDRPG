@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -42,11 +47,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.questlog.core.data.db.entity.WeeklyReviewEntity
+import com.questlog.core.domain.model.MemoryEntry
+import com.questlog.core.domain.model.OutcomeType
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,7 +152,18 @@ private fun ReviewStepsScreen(
             // 이번 주 스탯 카드
             StatsCard(stats = state.weekStats)
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(16.dp))
+
+            // F6.6 이번 주 메모 미니카드
+            if (state.weekDays.isNotEmpty()) {
+                WeekMemoryRow(
+                    weekDays = state.weekDays,
+                    entries = state.weekMemoryEntries,
+                )
+                Spacer(Modifier.height(16.dp))
+            }
+
+            Spacer(Modifier.height(8.dp))
 
             // 현재 스텝
             AnimatedContent(
@@ -335,6 +355,63 @@ private fun StatItem(value: String, label: String) {
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun WeekMemoryRow(
+    weekDays: List<String>,
+    entries: List<MemoryEntry>,
+    modifier: Modifier = Modifier,
+) {
+    val entryByDate = entries.associateBy { it.entryDate }
+    Column(modifier = modifier) {
+        Text(
+            text = "이번 주 메모",
+            style = MaterialTheme.typography.titleSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Spacer(Modifier.height(8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(weekDays) { date ->
+                val entry = entryByDate[date]
+                val dayLabel = date.takeLast(5).replace("-", "/")
+                val (bgColor, textColor) = if (entry != null) {
+                    val color = when (entry.outcomeType) {
+                        OutcomeType.STRONG_HIT -> Color(0xFFFFD700)
+                        OutcomeType.WEAK_HIT -> Color(0xFF4CAF50)
+                        OutcomeType.MISS -> Color(0xFFF44336)
+                        OutcomeType.NONE -> MaterialTheme.colorScheme.primary
+                    }
+                    color to Color.White
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant to MaterialTheme.colorScheme.onSurfaceVariant
+                }
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(bgColor)
+                        .padding(horizontal = 10.dp, vertical = 8.dp)
+                        .width(40.dp),
+                ) {
+                    Text(
+                        text = dayLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = textColor,
+                        textAlign = TextAlign.Center,
+                    )
+                    if (entry != null) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "✓",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = textColor,
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 

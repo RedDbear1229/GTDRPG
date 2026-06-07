@@ -11,6 +11,7 @@ import com.questlog.core.data.db.MIGRATION_5_6
 import com.questlog.core.data.db.MIGRATION_6_7
 import com.questlog.core.data.db.MIGRATION_7_8
 import com.questlog.core.data.db.MIGRATION_8_9
+import com.questlog.core.data.db.MIGRATION_9_10
 import com.questlog.core.data.db.dao.CharacterDao
 import com.questlog.core.data.db.dao.CharacterItemDao
 import com.questlog.core.data.db.dao.ClaimEncounterRewardDao
@@ -22,6 +23,7 @@ import com.questlog.core.data.db.dao.InboxItemDao
 import com.questlog.core.data.db.dao.NpcDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
+import com.questlog.core.data.db.dao.MemoryDao
 import com.questlog.core.data.db.dao.WeeklyReviewDao
 import dagger.Module
 import dagger.Provides
@@ -44,7 +46,7 @@ object DatabaseModule {
     ): QuestLogDatabase =
         Room.databaseBuilder(context, QuestLogDatabase::class.java, "questlog.db")
             .addTypeConverter(converters)
-            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9)
+            .addMigrations(MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8, MIGRATION_8_9, MIGRATION_9_10)
             .build()
 
     @Provides
@@ -82,4 +84,7 @@ object DatabaseModule {
 
     @Provides
     fun provideCombatLogDao(db: QuestLogDatabase): CombatLogDao = db.combatLogDao()
+
+    @Provides
+    fun provideMemoryDao(db: QuestLogDatabase): MemoryDao = db.memoryDao()
 }

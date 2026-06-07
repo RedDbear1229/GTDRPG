@@ -16,6 +16,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.DateRange
 import androidx.compose.material3.FilterChip
@@ -40,6 +41,8 @@ import com.questlog.feature.journal.components.CompletedTaskCard
 fun JournalScreen(
     onWeeklyReview: () -> Unit = {},
     onStatistics: () -> Unit = {},
+    onMemoryToday: () -> Unit = {},
+    onMemoryHistory: () -> Unit = {},
     viewModel: JournalViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -53,6 +56,9 @@ fun JournalScreen(
                     }
                     IconButton(onClick = onWeeklyReview) {
                         Icon(Icons.Outlined.DateRange, contentDescription = "주간 리뷰")
+                    }
+                    IconButton(onClick = onMemoryToday) {
+                        Icon(Icons.Outlined.AutoStories, contentDescription = "오늘의 기억")
                     }
                 },
             )

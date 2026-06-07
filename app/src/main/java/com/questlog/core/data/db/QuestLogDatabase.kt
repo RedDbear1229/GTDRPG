@@ -13,6 +13,7 @@ import com.questlog.core.data.db.dao.CompletionDao
 import com.questlog.core.data.db.dao.ConsentRecordDao
 import com.questlog.core.data.db.dao.EncounterLogDao
 import com.questlog.core.data.db.dao.InboxItemDao
+import com.questlog.core.data.db.dao.MemoryDao
 import com.questlog.core.data.db.dao.NpcDao
 import com.questlog.core.data.db.dao.ProjectDao
 import com.questlog.core.data.db.dao.TaskDao
@@ -24,6 +25,7 @@ import com.questlog.core.data.db.entity.ConsentRecordEntity
 import com.questlog.core.data.db.entity.EncounterLogEntity
 import com.questlog.core.data.db.entity.InboxItemEntity
 import com.questlog.core.data.db.entity.ItemEntity
+import com.questlog.core.data.db.entity.MemoryEntryEntity
 import com.questlog.core.data.db.entity.NpcEntity
 import com.questlog.core.data.db.entity.ProjectEntity
 import com.questlog.core.data.db.entity.TaskEntity
@@ -40,6 +42,7 @@ import com.questlog.core.data.db.entity.XpAwardEntity
 //   v7 = Phase 4 F4.2 — npcs 테이블. MIGRATION_6_7 (수동).
 //   v8 = Phase 4 F4.4 — encounter_logs + xp_awards 테이블. MIGRATION_7_8 (수동).
 //   v9 = Phase 5 F5.3 — weekly_reviews 테이블. MIGRATION_8_9 (수동).
+//   v10 = Phase 6 F6.1 — memory_entries 테이블. MIGRATION_9_10 (수동).
 // schemas/N.json 모두 app/schemas/com.questlog.core.data.db.QuestLogDatabase/ 커밋 필수.
 @Database(
     entities = [
@@ -55,8 +58,9 @@ import com.questlog.core.data.db.entity.XpAwardEntity
         EncounterLogEntity::class,
         XpAwardEntity::class,
         WeeklyReviewEntity::class,
+        MemoryEntryEntity::class,
     ],
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -73,6 +77,7 @@ abstract class QuestLogDatabase : RoomDatabase() {
     abstract fun claimEncounterRewardDao(): ClaimEncounterRewardDao
     abstract fun weeklyReviewDao(): WeeklyReviewDao
     abstract fun combatLogDao(): CombatLogDao
+    abstract fun memoryDao(): MemoryDao
 }
 
 // v2→v3: characters 테이블 추가 (AutoMigration 대체 — 스키마 JSON 불필요)
@@ -277,5 +282,32 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
             )
         """.trimIndent())
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_npcs_source` ON `npcs` (`source`)")
+    }
+}
+
+// v9→v10: memory_entries 테이블 추가.
+// entryDate UNIQUE: 하루 1엔트리 DB 레벨 제약.
+// taskId: SET NULL (Task 삭제 시 기억 유지).
+// characterId: CASCADE (Character 삭제 시 기억 삭제).
+val MIGRATION_9_10 = object : Migration(9, 10) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("""
+            CREATE TABLE IF NOT EXISTS `memory_entries` (
+                `id` TEXT NOT NULL PRIMARY KEY,
+                `entryDate` TEXT NOT NULL,
+                `characterId` TEXT NOT NULL,
+                `taskId` TEXT,
+                `taskTitleSnapshot` TEXT NOT NULL,
+                `outcomeType` TEXT NOT NULL,
+                `body` TEXT NOT NULL,
+                `enrichedBody` TEXT,
+                `createdAt` INTEGER NOT NULL,
+                `sealedAt` INTEGER NOT NULL,
+                FOREIGN KEY(`characterId`) REFERENCES `characters`(`id`) ON DELETE CASCADE,
+                FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON DELETE SET NULL
+            )
+        """.trimIndent())
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_memory_entries_entryDate` ON `memory_entries` (`entryDate`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_memory_entries_characterId` ON `memory_entries` (`characterId`)")
     }
 }

@@ -8,6 +8,7 @@ import com.questlog.core.data.repository.InboxItemRepositoryImpl
 import com.questlog.core.data.repository.BuffRepositoryImpl
 import com.questlog.core.data.repository.EncounterRepositoryImpl
 import com.questlog.core.data.repository.ItemRepositoryImpl
+import com.questlog.core.data.repository.MemoryRepositoryImpl
 import com.questlog.core.data.repository.NpcRepositoryImpl
 import com.questlog.core.data.repository.ProjectRepositoryImpl
 import com.questlog.core.data.repository.TaskRepositoryImpl
@@ -19,6 +20,7 @@ import com.questlog.core.domain.repository.ClarifyRepository
 import com.questlog.core.domain.repository.CompletionRepository
 import com.questlog.core.domain.repository.InboxItemRepository
 import com.questlog.core.domain.repository.ItemRepository
+import com.questlog.core.domain.repository.MemoryRepository
 import com.questlog.core.domain.repository.NpcRepository
 import com.questlog.core.domain.repository.ProjectRepository
 import com.questlog.core.domain.repository.TaskRepository
@@ -75,4 +77,8 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindClaudeRepository(impl: ClaudeRepositoryImpl): ClaudeRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindMemoryRepository(impl: MemoryRepositoryImpl): MemoryRepository
 }

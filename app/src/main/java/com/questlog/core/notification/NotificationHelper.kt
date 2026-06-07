@@ -17,6 +17,7 @@ object NotificationChannels {
     const val HP_CRISIS = "hp_crisis"
     const val STREAK = "streak_risk"
     const val WEEKLY_REVIEW = "weekly_review"
+    const val MEMORY_REMINDER = "memory_reminder"
 }
 
 object NotificationIds {
@@ -25,6 +26,7 @@ object NotificationIds {
     const val HP_CRISIS = 1003
     const val STREAK = 1004
     const val WEEKLY_REVIEW = 2001  // WeeklyReviewReminderWorker 와 동일
+    const val MEMORY_REMINDER = 3001
 }
 
 object NotificationHelper {
@@ -58,6 +60,11 @@ object NotificationHelper {
                 "주간 리뷰",
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply { description = "토요일 주간 리뷰 알림" },
+            NotificationChannel(
+                NotificationChannels.MEMORY_REMINDER,
+                "오늘의 기억 알림",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = "완료한 퀘스트가 있을 때 저녁 기억 작성 알림" },
         ).forEach { nm.createNotificationChannel(it) }
     }
 
