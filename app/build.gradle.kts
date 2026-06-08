@@ -37,7 +37,7 @@ android {
         versionCode = 1
         versionName = "0.1.0-alpha"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.questlog.HiltTestRunner"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -176,10 +176,13 @@ dependencies {
     testImplementation(libs.robolectric)
     testImplementation(libs.androidx.room.testing)
 
-    // Compose UI Test
+    // Compose UI Test + Hilt Test
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    kspAndroidTest(libs.hilt.compiler)
+    kspAndroidTest(libs.androidx.hilt.compiler)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
