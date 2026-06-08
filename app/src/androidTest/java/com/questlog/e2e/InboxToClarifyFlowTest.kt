@@ -35,7 +35,7 @@ class InboxToClarifyFlowTest {
     }
 
     @Test
-    fun `인박스 캡처 후 명료화 2분 룰 경로로 인박스가 비워진다`() {
+    fun inboxCapture_clarify2MinRule_inboxBecomesEmpty() {
         // 1. Inbox starts empty
         composeRule.onNodeWithText("Inbox가 비어 있어요").assertIsDisplayed()
 
