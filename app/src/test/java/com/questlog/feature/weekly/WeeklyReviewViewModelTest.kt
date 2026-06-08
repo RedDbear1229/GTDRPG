@@ -7,6 +7,7 @@ import com.questlog.core.domain.model.Character
 import com.questlog.core.domain.model.CharacterClass
 import com.questlog.core.domain.repository.CharacterRepository
 import com.questlog.core.domain.repository.ClaudeRepository
+import com.questlog.core.domain.repository.MemoryRepository
 import com.questlog.core.domain.repository.TaskRepository
 import com.questlog.core.domain.usecase.GainXPUseCase
 import io.mockk.coEvery
@@ -37,6 +38,7 @@ class WeeklyReviewViewModelTest {
     private val taskRepository = mockk<TaskRepository>()
     private val characterRepository = mockk<CharacterRepository>()
     private val claudeRepository = mockk<ClaudeRepository>()
+    private val memoryRepository = mockk<MemoryRepository>(relaxed = true)
     private val gainXP = mockk<GainXPUseCase>()
 
     private val character = Character(
@@ -55,6 +57,7 @@ class WeeklyReviewViewModelTest {
         characterRepository = characterRepository,
         claudeRepository = claudeRepository,
         gainXP = gainXP,
+        memoryRepository = memoryRepository,
     )
 
     @BeforeEach

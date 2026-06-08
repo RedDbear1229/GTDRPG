@@ -76,6 +76,7 @@ class CompleteTaskUseCaseTest {
     private fun fakeCompletionRepo(alwaysSuccess: Boolean): CompletionRepository =
         object : CompletionRepository {
             override suspend fun completeTask(taskId: String, log: CombatLog, updatedCharacter: Character, now: Long) = alwaysSuccess
+            override suspend fun getCompletedTaskSummariesByDate(date: String) = emptyList<com.questlog.core.domain.model.TaskSummary>()
         }
 
     private val fakeBuffRepo = object : BuffRepository {
