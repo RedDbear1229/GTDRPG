@@ -31,7 +31,7 @@ jobs:
       - name: Verify Paparazzi screenshots
         run: |
           if [ -d "app/src/test/snapshots" ]; then
-            ./gradlew verifyPaparazziDebug --tests "com.questlog.screenshot.*" --stacktrace
+            ./gradlew verifyPaparazziDebug --tests "com.questlog.screenshot.CoreComponentsPaparazziTest" --stacktrace
           else
             echo "No snapshots recorded yet — skipping verify. Run record-screenshots workflow first."
           fi

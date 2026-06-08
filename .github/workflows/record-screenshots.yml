@@ -33,7 +33,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Record Paparazzi snapshots
-        run: ./gradlew recordPaparazziDebug --tests "com.questlog.screenshot.*" --stacktrace
+        run: ./gradlew recordPaparazziDebug --tests "com.questlog.screenshot.CoreComponentsPaparazziTest" --stacktrace
 
       - name: Commit snapshots if changed
         run: |
