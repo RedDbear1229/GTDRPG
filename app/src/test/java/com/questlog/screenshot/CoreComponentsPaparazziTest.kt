@@ -138,7 +138,7 @@ class CoreComponentsPaparazziTest {
                 task = sampleTask().copy(
                     title = "연간 사업 계획서 전략 수립",
                     challengeRating = 18f,
-                    monsterType = MonsterType.DRAGON,
+                    monsterType = MonsterType.ANCIENT_DRAGON,
                     lifeArea = LifeArea.WORK,
                     dueDate = System.currentTimeMillis() + 86_400_000L,
                 ),
