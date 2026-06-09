@@ -7,21 +7,41 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
+import androidx.test.core.app.ApplicationProvider
+import androidx.work.Configuration
+import androidx.work.testing.WorkManagerTestInitHelper
 import com.questlog.MainActivity
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TestRule
+import org.junit.runner.Description
+import org.junit.runners.model.Statement
 
 /**
  * F7.1 E2E: Inbox 캡처 → 명료화(2분 룰) → Inbox에서 사라짐
  *
- * 'XP 획득' 단계는 캐릭터 없이도 무결성 유지됨을 단위 테스트(CompleteTaskUseCaseTest)가 보장.
  * TestAppModule 이 DataStore에 onboarding_completed = true 를 사전 설정해 OnboardingScreen 을 건너뜀.
+ * WorkManager manifest auto-init 비활성화 → order=-1 Rule로 Activity 시작 전 수동 초기화.
  */
 @HiltAndroidTest
 class InboxToClarifyFlowTest {
+
+    // Activity 시작 전(order = -1)에 WorkManager 테스트 모드로 초기화
+    @get:Rule(order = -1)
+    val workManagerRule: TestRule = TestRule { base, _ ->
+        object : Statement() {
+            override fun evaluate() {
+                WorkManagerTestInitHelper.initializeTestWorkManager(
+                    ApplicationProvider.getApplicationContext(),
+                    Configuration.Builder().build()
+                )
+                base.evaluate()
+            }
+        }
+    }
 
     @get:Rule(order = 0)
     val hiltRule = HiltAndroidRule(this)
