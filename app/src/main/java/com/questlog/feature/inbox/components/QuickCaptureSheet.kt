@@ -144,6 +144,6 @@ fun QuickCaptureSheet(
     }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
+        runCatching { focusRequester.requestFocus() }
     }
 }
