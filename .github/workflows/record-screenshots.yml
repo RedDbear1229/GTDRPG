@@ -8,6 +8,9 @@ on:
       - 'app/src/main/**'
       - 'app/src/test/java/com/questlog/screenshot/**'
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   record:
     name: Record & Commit Snapshots
