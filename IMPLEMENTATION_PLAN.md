@@ -49,9 +49,15 @@
 ┌────────────────────────────────────────────────────────────────┐
 │ Phase 7: 베타 + 자체 배포 (20h)                                │
 │   E2E 테스트 → 실기기 30일 사용 → APK sideload                 │
+└────────┬───────────────────────────────────────────────────────┘
+         ↓
+┌────────────────────────────────────────────────────────────────┐
+│ Phase 8: Google Drive 동기화 (30h)                             │
+│   앱 내 Google 로그인 → 수동 백업/복원 → 자동 동기화(WorkManager)│
+│   ※ Phase 7(배포) 완료 후 진입 권장 — 안정 데이터 구조 전제    │
 └────────────────────────────────────────────────────────────────┘
 
-총 예상: 325h (집중 시간) ≈ 41일(8h/d) ≈ 16-20주(주말+평일저녁)
+총 예상: 355h (집중 시간) ≈ 44일(8h/d) ≈ 17-21주(주말+평일저녁)
 
 > **횡단 차단 규칙** — 모든 Phase에 강제 적용:
 > 1. **Room 스키마 변경 = phase-level blocking sub-task** (version 증분 + `Migration_N_M` 또는 `@AutoMigration` + `app/schemas/` JSON 커밋 + `MigrationTest`). Phase 1 도그푸딩 개시 이후 `fallbackToDestructiveMigration()` 영구 금지.
@@ -1362,6 +1368,192 @@ app/proguard-rules.pro
 
 ---
 
+## Phase 8 — Google Drive 동기화 (30h)
+
+> Phase 7(배포) 완료 후 진입 권장. DB 스키마가 안정된 이후 백업 포맷도 안정되기 때문.
+
+### F8.0 사전 준비 — Google Cloud Console (1h)
+
+1. Google Cloud Console에서 프로젝트 생성
+2. Drive API 활성화
+3. OAuth 2.0 클라이언트 ID (Android 타입) 생성 — 패키지명 + SHA-1 지문 입력
+4. OAuth 동의 화면 → 스코프 `https://www.googleapis.com/auth/drive.appdata` 추가
+5. `google-services.json` 다운로드 → `app/` 배치
+
+---
+
+### F8.1 의존성 + 인증 기반 (5h)
+
+**구현 순서**:
+1. `app/build.gradle.kts`: `play-services-auth:21.2.0` 추가, `google-services` 플러그인 적용
+2. `build.gradle.kts` (루트): `com.google.gms:google-services` 플러그인 선언
+3. `AndroidManifest.xml`: `ACCESS_NETWORK_STATE` 권한 추가
+4. `core/data/auth/GoogleAuthManager.kt` 작성 (로그인 인텐트 생성, 토큰 획득, 로그아웃)
+5. `MainActivity.kt`: `ActivityResultContracts.StartActivityForResult` 런처 등록
+
+**파일**:
+```
+app/build.gradle.kts
+build.gradle.kts
+app/src/main/AndroidManifest.xml
+core/data/auth/GoogleAuthManager.kt
+MainActivity.kt (수정)
+```
+
+**잠재**:
+- ⚠️ `GoogleAuthUtil.getToken()` 은 메인 스레드 금지 → `withContext(Dispatchers.IO)` 필수
+- ⚠️ `google-services.json` 은 절대 git 커밋 금지 (`.gitignore` 확인)
+- ⚠️ SHA-1 지문은 debug / release keystore 각각 등록해야 함
+
+---
+
+### F8.2 도메인 레이어 (3h)
+
+**구현 순서**:
+1. `core/domain/model/DriveAccount.kt` — 로그인 계정 정보 (email, displayName)
+2. `core/domain/model/SyncResult.kt` — sealed class (Success, Failure, NoAccount, Conflict)
+3. `core/domain/repository/DriveBackupRepository.kt` — 인터페이스
+
+```kotlin
+interface DriveBackupRepository {
+    fun getSignedInAccount(): Flow<DriveAccount?>
+    suspend fun signIn(activityResultData: Intent): SyncResult
+    suspend fun signOut()
+    suspend fun backup(): SyncResult
+    suspend fun restore(): SyncResult
+    suspend fun getLastSyncTime(): Instant?
+}
+```
+
+---
+
+### F8.3 직렬화 + Drive REST API (8h)
+
+**구현 순서**:
+1. `core/data/backup/BackupData.kt` — `@Serializable` data class (13개 엔티티 포함, `ConsentRecordEntity` 제외)
+   - 헤더: `version: Int` (DB 스키마 버전), `exportedAt: String` (ISO 8601)
+2. `core/data/backup/BackupSerializer.kt` — 모든 DAO에서 읽어 JSON 직렬화 / 역직렬화 + DB 재삽입
+3. `core/data/remote/DriveApiService.kt` — Retrofit 인터페이스 (Drive REST v3, Gson 사용 안 함)
+   - `listFiles()`, `uploadFile()`, `updateFile()`, `downloadFile()`
+4. `core/data/remote/dto/DriveDto.kt` — `@Serializable` DTO
+
+**Drive 업로드 전략**:
+- App Data 폴더(`spaces=appDataFolder`) — 사용자 Drive UI에 노출 안 됨
+- 파일명 `questlog_backup.json` 고정, 기존 파일 있으면 PATCH(덮어쓰기), 없으면 POST
+
+**잠재**:
+- ⚠️ Gson 금지 — `kotlinx.serialization` 단독. `google-api-services-drive` 라이브러리는 Gson 의존이므로 사용 금지
+- ⚠️ 복원 시 버전 불일치(백업 v9, 현재 v10) → `BackupData.version` 확인 후 마이그레이션 거부 또는 경고
+
+---
+
+### F8.4 Repository 구현 + Hilt DI (4h)
+
+**구현 순서**:
+1. `core/data/repository/DriveBackupRepositoryImpl.kt`
+   - `backup()`: 직렬화 → 기존 파일 조회 → 업로드/업데이트
+   - `restore()`: 원격 파일 조회 → 타임스탬프 비교 → Conflict 반환 또는 다운로드 → DB 재삽입
+2. `core/data/di/DriveModule.kt` — Hilt 모듈 (`DriveApiService`, `DriveBackupRepository` 바인딩)
+
+**충돌 처리 전략**: 로컬이 더 최신이면 `SyncResult.Conflict` 반환 → UI에서 사용자 선택
+
+---
+
+### F8.5 자동 동기화 — WorkManager (4h)
+
+**구현 순서**:
+1. `worker/DriveAutoSyncWorker.kt`
+   ```kotlin
+   @HiltWorker
+   class DriveAutoSyncWorker @AssistedInject constructor(...) : CoroutineWorker(...) {
+       override suspend fun doWork(): Result = when (driveBackupRepository.backup()) {
+           is SyncResult.Success  -> Result.success()
+           is SyncResult.NoAccount -> Result.failure()   // 재시도 무의미
+           is SyncResult.Failure  -> if (runAttemptCount < 3) Result.retry() else Result.failure()
+           is SyncResult.Conflict -> Result.success()    // 충돌은 다음 앱 실행 시 사용자에게 알림
+       }
+   }
+   ```
+2. `WorkerScheduler.kt` 에 `scheduleDriveSync(intervalHours)` / `cancelDriveSync()` 추가
+   - `ExistingPeriodicWorkPolicy.UPDATE` (간격 변경 즉시 반영)
+   - `Constraints: CONNECTED` (네트워크 필수)
+   - 지수 백오프 15분
+
+**파일**:
+```
+worker/DriveAutoSyncWorker.kt (신규)
+worker/WorkerScheduler.kt (수정)
+```
+
+---
+
+### F8.6 Settings DataStore + UI (5h)
+
+**AppSettings.kt 추가**:
+```kotlin
+val driveSyncEnabled: Flow<Boolean>        // 자동 동기화 ON/OFF
+val driveSyncIntervalHours: Flow<Int>      // 간격: 1 / 6 / 24
+val driveLastSyncTime: Flow<Long?>         // 마지막 동기화 epoch ms
+val drivePendingConflict: Flow<Boolean>    // 충돌 알림 플래그
+```
+
+**SettingsViewModel.kt 추가 UiState 필드**:
+```kotlin
+val driveAccount: DriveAccount? = null
+val driveSyncEnabled: Boolean = false
+val driveSyncIntervalHours: Int = 24
+val driveLastSyncTime: Instant? = null
+val driveSyncInProgress: Boolean = false
+val drivePendingConflict: SyncConflictInfo? = null
+```
+
+**SettingsScreen.kt — DriveBackupSection 레이아웃**:
+```
+┌─ Google Drive 백업 ──────────────────────┐
+│ [Google 로그인] 또는                     │
+│ 계정: user@gmail.com      [로그아웃]     │
+│                                          │
+│ 자동 동기화               [ON/OFF 토글]  │
+│ 동기화 간격    [1시간 / 6시간 / 매일]   │
+│                                          │
+│ 마지막 동기화: 2026-06-16 14:32          │
+│ [지금 백업]              [복원]          │
+│                                          │
+│ ⚠ 충돌: 로컬(14:32) vs 원격(12:00)    │  ← 충돌 시만 표시
+│ [로컬 유지]    [원격으로 덮어쓰기]      │
+└──────────────────────────────────────────┘
+```
+
+---
+
+### F8 파일 목록 요약
+
+| 작업 | 파일 |
+|------|------|
+| 수정 | `app/build.gradle.kts` |
+| 수정 | `build.gradle.kts` (루트) |
+| 수정 | `AndroidManifest.xml` |
+| 수정 | `MainActivity.kt` |
+| 수정 | `AppSettings.kt` |
+| 수정 | `WorkerScheduler.kt` |
+| 수정 | `SettingsViewModel.kt` |
+| 수정 | `SettingsScreen.kt` |
+| 신규 | `core/domain/model/DriveAccount.kt` |
+| 신규 | `core/domain/model/SyncResult.kt` |
+| 신규 | `core/domain/repository/DriveBackupRepository.kt` |
+| 신규 | `core/data/auth/GoogleAuthManager.kt` |
+| 신규 | `core/data/backup/BackupData.kt` |
+| 신규 | `core/data/backup/BackupSerializer.kt` |
+| 신규 | `core/data/remote/DriveApiService.kt` |
+| 신규 | `core/data/remote/dto/DriveDto.kt` |
+| 신규 | `core/data/repository/DriveBackupRepositoryImpl.kt` |
+| 신규 | `core/data/di/DriveModule.kt` |
+| 신규 | `worker/DriveAutoSyncWorker.kt` |
+
+**총 8개 수정 + 11개 신규 = 19개 파일**
+
+---
+
 ## 요약 표 — Phase별 예상 시간
 
 | Phase | 기능 수 | 집중 시간 | 캘린더 환산 (시간×3) | 누적 |
@@ -1374,7 +1566,8 @@ app/proguard-rules.pro
 | 5 Claude API/통계/폴리싱 | 5 | 52h | 156h (3주) | 270h |
 | 6 Memory of the Day | 6 | 35h | 105h (2주) | 305h |
 | 7 베타/배포 | 2 | 20h | 60h (1-2주) | 325h |
-| **총합** | **35** | **325h** | **975h ≈ 6-7개월** | |
+| 8 Google Drive 동기화 | 6 | 30h | 90h (2주) | 355h |
+| **총합** | **41** | **355h** | **1,065h ≈ 7-8개월** | |
 
 > Phase 4·5의 시간 재배분 (Codex 적대적 리뷰 2026-05 1·2차 반영):
 > - F4.0 신설: **+8h** (Phase 4) — 프라이버시 인프라
@@ -1387,6 +1580,10 @@ app/proguard-rules.pro
 > Phase 6 신설 (2026-05-23, 솔로 RPG 시나리오 통합):
 > - F6.1~F6.6 **+35h** (290h → 325h) — 즉시 정산 부담을 회피하는 "하루 1엔트리" 패러다임 채택
 > - 기존 Phase 6(베타+배포)는 Phase 7로 시프트
+>
+> Phase 8 신설 (2026-06-16, Google Drive 동기화):
+> - F8.0~F8.6 **+30h** (325h → 355h) — 앱 내 Google 로그인 + 수동/자동 백업
+> - Phase 7 완료 후 진입 권장 (DB 스키마 안정 전제)
 
 ---
 
@@ -1402,7 +1599,11 @@ app/proguard-rules.pro
 | 🔴 STT/RECORD_AUDIO가 동의 게이트 우회 | 1·4 | Phase 1 도그푸딩 중 마이크 권한 무동의 호출 | F1.2에서 STT 제거 → F4.5(F4.0 의존)로 이전. Codex 2차 지적 #1 반영 |
 | 🔴 스키마 SSOT 분기 (data_model.md vs IMPLEMENTATION_PLAN.md) | 1·2·3·4 | 마이그레이션 history 분기 → 사용자 DB 손실 | docs/05_data_model.md §5.6.1 표를 단일 진실 공급원으로 고정. PR 머지 시 양 문서 동시 갱신 확인. Codex 2차 지적 #2 반영 |
 | 🔴 Room 스키마 마이그레이션 누락/파괴적 | 1·2·3·4 모두 | 사용자 도그푸딩 데이터 소실 → 앱 신뢰 손실 | 각 phase 첫 entity 작업에 Migration + MigrationTest 의무화. `fallbackToDestructiveMigration()` 영구 금지(Phase 1 도그푸딩 개시 후) |
+| 🔴 스키마 JSON 1-9 누락으로 마이그레이션 경로 검증 불가 | 전 Phase | 기존 앱 업그레이드 시 앱 시작 크래시 → 데이터 소실 | `app/schemas/` 에 v1-v9 JSON 모두 커밋. `MigrationTestHelper` 로 최소 v9→v10 전체 체인 계측 테스트 작성. Codex 적대적 리뷰 2026-06-16 지적 #1 반영 |
 | 🔴 ProGuard가 직렬화 클래스 망가뜨림 | 7 | Release 빌드 크래시 | Phase 7 시작 전 Release 빌드 1회 검증 |
+| 🔴 Drive 백업 파일 버전 불일치 시 복원 실패 | 8 (F8.3) | 구 버전 백업을 신 버전 앱에서 복원 → 크래시 또는 데이터 손상 | `BackupData.version` 확인 후 현재 DB 버전과 다르면 복원 거부 + 사용자에게 명확한 오류 메시지 |
+| 🟡 Drive OAuth 토큰 만료 시 자동 동기화 조용히 실패 | 8 (F8.5) | 백업이 안 되는지 모름 → 데이터 유실 위험 | `GoogleAuthUtil.getToken()` 예외 시 `Result.failure()` + 설정 화면에 "재연결 필요" 배지 표시 |
+| 🟡 `google-services.json` 실수로 git 커밋 | 8 (F8.1) | OAuth 클라이언트 ID 노출 | `.gitignore` 에 `app/google-services.json` 추가 확인. CI lint로 감지 |
 | 🔴 Memory `entryDate UNIQUE` 위반 race (자정 경계) | 6 (F6.1) | INSERT 실패 → 사용자가 기록 못 함 | UseCase에서 `LocalDate.now()` 트랜잭션 시작 시점에 캐시 + 단일 트랜잭션. Snackbar로 충돌 시 명확한 메시지 |
 | 🔴 Memory Claude 윤색이 동의 게이트 우회 | 6 (F6.5) | 사용자 본문 무동의 송신 → 프라이버시 위반 | F4.0(Consent) + PromptSanitizer 통과 후에만 호출. `canCallApi() == false` 시 호출 0회 단위 테스트 |
 | 🟡 Memory 타임존 변경 시 "어제" 정의 깨짐 | 6 (F6.1) | 잘못된 날짜로 잠금 | `entryDate`는 저장 시점 local tz 고정. UTC 변환 금지. 변경 후 미작성 케이스는 `Expired` 처리 |
@@ -1435,8 +1636,8 @@ app/proguard-rules.pro
 - [ ] **Room Entity 신규/변경 시 phase-level blocking 작업으로 분리**:
   - [ ] `version` 증분 + `exportSchema = true`
   - [ ] `Migration_N_M` 작성 (NOT NULL/기본값/인덱스 변경은 수동, 추가만이면 `@AutoMigration`)
-  - [ ] `app/schemas/<DB FQN>/<N>.json` 커밋
-  - [ ] `MigrationTest`: 직전 시드 DB 로드 → 마이그 → 무손실 검증
+  - [ ] `app/schemas/<DB FQN>/<N>.json` 커밋 — **1부터 현재 버전까지 전체 보유 필수** (Codex 2026-06-16 지적)
+  - [ ] `MigrationTestHelper` 로 `N-1 → N` 계측 테스트 작성 + 그린 확인
   - [ ] Phase 1 도그푸딩 개시 이후 `fallbackToDestructiveMigration()` 사용 PR 영구 금지
 - [ ] **상태 전이 + 보상/로그 INSERT가 있으면 단일 `@Transaction` DAO + 조건부 UPDATE + `OnConflictStrategy.IGNORE` 패턴 사용** (CompletionDao / ClaimEncounterRewardDao 참조)
 - [ ] **민감 권한·외부 송신을 다루면 F4.0 완료 도장 확인**

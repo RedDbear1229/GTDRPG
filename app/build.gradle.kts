@@ -95,6 +95,12 @@ android {
             isReturnDefaultValues = true
         }
     }
+
+    sourceSets {
+        getByName("androidTest") {
+            assets.srcDirs("$projectDir/schemas")
+        }
+    }
 }
 
 // Room 스키마 JSON 내보내기 — 마이그레이션 회귀 방지를 위해 app/schemas/ 디렉터리 커밋 필수.
@@ -177,6 +183,7 @@ dependencies {
     testImplementation(libs.androidx.room.testing)
 
     // Compose UI Test + Hilt Test
+    androidTestImplementation(libs.androidx.room.testing)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(platform(libs.androidx.compose.bom))
