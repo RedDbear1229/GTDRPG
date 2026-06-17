@@ -42,8 +42,9 @@ class ResolveCombatUseCaseTest {
 
     private fun makeUseCase(fixedRoll: Int): ResolveCombatUseCase {
         val d20Random = object : Random() {
-            override fun nextBits(bitCount: Int): Int =
-                if (bitCount == 0) 0 else (fixedRoll - 1) and ((1 shl bitCount) - 1)
+            override fun nextBits(bitCount: Int): Int = fixedRoll - 1
+            // Override directly to avoid JVM `1 shl 32 == 1` masking bug in nextBits
+            override fun nextInt(from: Int, until: Int): Int = fixedRoll.coerceIn(from, until - 1)
         }
         // Separate item-drop Random so list.random() never shares state with the d20 mock.
         return ResolveCombatUseCase(d20Random, ItemDropUseCase(Random(0)))

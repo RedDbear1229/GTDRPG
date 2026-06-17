@@ -63,12 +63,9 @@ class EquipmentBonusTest {
     // D20=8: STR 0 + proficiency 2 = 10 < CR2 AC(12) → Miss; with weapon+2 → 12 = Hit
     private fun makeUseCase(fixedRoll: Int) = ResolveCombatUseCase(
         random = object : Random() {
-            private var callCount = 0
-            override fun nextBits(bitCount: Int): Int {
-                callCount++
-                val raw = if (callCount == 1) fixedRoll - 1 else 0
-                return if (bitCount == 0) 0 else raw and ((1 shl bitCount) - 1)
-            }
+            override fun nextBits(bitCount: Int): Int = fixedRoll - 1
+            // Override directly to avoid JVM `1 shl 32 == 1` masking bug in nextBits
+            override fun nextInt(from: Int, until: Int): Int = fixedRoll.coerceIn(from, until - 1)
         }
     )
 

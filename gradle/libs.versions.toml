@@ -26,6 +26,9 @@ work = "2.10.0"
 paging = "3.3.5"
 securityCrypto = "1.1.0-alpha06"
 
+# Google
+playServicesAuth = "21.3.0"
+
 # Networking
 retrofit = "2.11.0"
 retrofitKotlinxSerializer = "1.0.0"
@@ -87,6 +90,10 @@ hilt-android-testing = { group = "com.google.dagger", name = "hilt-android-testi
 androidx-hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigation" }
 androidx-hilt-work = { group = "androidx.hilt", name = "hilt-work", version.ref = "hiltNavigation" }
 androidx-hilt-compiler = { group = "androidx.hilt", name = "hilt-compiler", version.ref = "hiltNavigation" }
+
+# Google
+play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }
+kotlinx-coroutines-play-services = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines" }
 
 # Coroutines
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }

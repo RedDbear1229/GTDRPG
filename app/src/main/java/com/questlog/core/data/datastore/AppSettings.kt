@@ -19,11 +19,20 @@ class AppSettings @Inject constructor(
 ) {
     companion object {
         private val CLAUDE_API_ENABLED = booleanPreferencesKey("claude_api_enabled")
+        private val DRIVE_AUTO_SYNC_ENABLED = booleanPreferencesKey("drive_auto_sync_enabled")
         val ACTIVE_BUFF_CODE = stringPreferencesKey("active_buff_code")
     }
 
     val claudeApiEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[CLAUDE_API_ENABLED] ?: false
+    }
+
+    val driveAutoSyncEnabled: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[DRIVE_AUTO_SYNC_ENABLED] ?: false
+    }
+
+    suspend fun setDriveAutoSyncEnabled(enabled: Boolean) {
+        dataStore.edit { prefs -> prefs[DRIVE_AUTO_SYNC_ENABLED] = enabled }
     }
 
     suspend fun setClaudeApiEnabled(enabled: Boolean) {

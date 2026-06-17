@@ -93,6 +93,8 @@ class CompleteTaskUseCaseTest {
     ): CompleteTaskUseCase {
         val random = object : Random() {
             override fun nextBits(bitCount: Int): Int = fixedRoll - 1
+            // Override directly to avoid JVM `1 shl 32 == 1` masking bug in nextBits
+            override fun nextInt(from: Int, until: Int): Int = fixedRoll.coerceIn(from, until - 1)
         }
         return CompleteTaskUseCase(taskRepo, charRepo, completionRepo, ResolveCombatUseCase(random), fakeBuffRepo)
     }

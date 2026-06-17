@@ -1,7 +1,9 @@
 package com.questlog.worker
 
 import android.content.Context
+import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.NetworkType
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import java.time.Instant
@@ -77,6 +79,25 @@ object WorkerScheduler {
                 .setInitialDelay(millisUntil(21, 0), TimeUnit.MILLISECONDS)
                 .build(),
         )
+    }
+
+    // Drive 자동 동기화 등록/해제 — 설정 화면에서 토글 시 호출
+    fun scheduleDriveSync(context: Context) {
+        WorkManager.getInstance(context).enqueueUniquePeriodicWork(
+            DriveAutoSyncWorker.WORK_NAME,
+            ExistingPeriodicWorkPolicy.UPDATE,
+            PeriodicWorkRequestBuilder<DriveAutoSyncWorker>(6, TimeUnit.HOURS)
+                .setConstraints(
+                    Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build()
+                )
+                .build(),
+        )
+    }
+
+    fun cancelDriveSync(context: Context) {
+        WorkManager.getInstance(context).cancelUniqueWork(DriveAutoSyncWorker.WORK_NAME)
     }
 
     // 다음 지정 시각(시:분)까지 남은 밀리초. 이미 지났으면 내일 같은 시각.

@@ -144,6 +144,10 @@ dependencies {
     implementation(libs.androidx.hilt.work)
     ksp(libs.androidx.hilt.compiler)
 
+    // Google Sign-In + Drive
+    implementation(libs.play.services.auth)
+    implementation(libs.kotlinx.coroutines.play.services)
+
     // Coroutines
     implementation(libs.kotlinx.coroutines.android)
 

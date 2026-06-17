@@ -13,6 +13,9 @@ captures/
 .externalNativeBuild/
 .cxx/
 
+# Google Services — OAuth Client ID 포함, 절대 커밋 금지
+app/google-services.json
+
 # Keystore
 *.jks
 *.keystore

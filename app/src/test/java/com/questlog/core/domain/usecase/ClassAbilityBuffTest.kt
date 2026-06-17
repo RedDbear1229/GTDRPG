@@ -36,8 +36,9 @@ class ClassAbilityBuffTest {
     // Builds a useCase with d20 pinned to `fixedD20`. Item drops use a separate seeded random.
     private fun makeUseCase(fixedD20: Int) = ResolveCombatUseCase(
         random = object : Random() {
-            override fun nextBits(bitCount: Int): Int =
-                if (bitCount == 0) 0 else (fixedD20 - 1) and ((1 shl bitCount) - 1)
+            override fun nextBits(bitCount: Int): Int = fixedD20 - 1
+            // Override directly to avoid JVM `1 shl 32 == 1` masking bug in nextBits
+            override fun nextInt(from: Int, until: Int): Int = fixedD20.coerceIn(from, until - 1)
         },
         itemDropUseCase = ItemDropUseCase(Random(0)),
     )
