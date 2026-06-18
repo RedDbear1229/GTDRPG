@@ -1043,7 +1043,7 @@
               "equippedSlot"
             ],
             "orders": [],
-            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_character_items_equipped_slot_unique` ON `${TABLE_NAME}` (`characterId`, `equippedSlot`) WHERE isEquipped = 1"
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_character_items_equipped_slot_unique` ON `${TABLE_NAME}` (`characterId`, `equippedSlot`)"
           }
         ],
         "foreignKeys": [

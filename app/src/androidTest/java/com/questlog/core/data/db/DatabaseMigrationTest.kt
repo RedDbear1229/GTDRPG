@@ -92,7 +92,7 @@ class DatabaseMigrationTest {
         db.close()
     }
 
-    // v5→v6: items + character_items 추가, 슬롯 단일성 부분 인덱스
+    // v5→v6: items + character_items 추가, 슬롯 단일성 UNIQUE 인덱스
     @Test
     fun migrate5To6_itemTablesCreated() {
         helper.createDatabase(TEST_DB, 5).close()
@@ -103,7 +103,7 @@ class DatabaseMigrationTest {
             assert(cursor.columnCount == 13) { "items 컬럼 수 불일치" }
         }
 
-        // 슬롯 단일성 부분 인덱스 (WHERE isEquipped=1)
+        // 슬롯 단일성 UNIQUE(characterId, equippedSlot) — unequipped 행은 equippedSlot=NULL이므로 중복 안전
         db.query("SELECT name FROM sqlite_master WHERE type='index' AND name='index_character_items_equipped_slot_unique'").use { cursor ->
             assert(cursor.moveToFirst()) { "index_character_items_equipped_slot_unique 인덱스 없음" }
         }
@@ -162,5 +162,21 @@ class DatabaseMigrationTest {
     fun fullChain_v9ToCurrentVersion_isValid() {
         helper.createDatabase(TEST_DB, 9).close()
         helper.runMigrationsAndValidate(TEST_DB, 10, true, MIGRATION_9_10).close()
+    }
+
+    // 전체 체인: v5 → v10 — character_items 인덱스 일관성 포함 전 구간 검증
+    @Test
+    fun fullChain_v5ToCurrentVersion_isValid() {
+        helper.createDatabase(TEST_DB, 5).close()
+        helper.runMigrationsAndValidate(
+            TEST_DB,
+            10,
+            true,
+            MIGRATION_5_6,
+            MIGRATION_6_7,
+            MIGRATION_7_8,
+            MIGRATION_8_9,
+            MIGRATION_9_10,
+        ).close()
     }
 }

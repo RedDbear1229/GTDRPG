@@ -7,7 +7,8 @@ import com.questlog.core.domain.model.EquipmentSlot
 
 // character_items: 캐릭터-아이템 소유·장착 상태 junction 테이블.
 // FK CASCADE: 캐릭터 삭제 시 인벤토리 전체 삭제, 아이템 삭제 시 junction 행 삭제.
-// equippedSlot 단일성(한 슬롯에 1개)은 DAO @Transaction equipItem() 이 보장.
+// 슬롯 단일성: DAO @Transaction equipItem() + DB UNIQUE(characterId, equippedSlot).
+// 미장착 아이템은 항상 equippedSlot=NULL → SQLite UNIQUE는 NULL 중복 허용으로 안전.
 @Entity(
     tableName = "character_items",
     primaryKeys = ["characterId", "itemId"],
@@ -29,6 +30,11 @@ import com.questlog.core.domain.model.EquipmentSlot
         Index("characterId"),
         Index("itemId"),
         Index("equippedSlot"),
+        Index(
+            value = ["characterId", "equippedSlot"],
+            unique = true,
+            name = "index_character_items_equipped_slot_unique",
+        ),
     ],
 )
 data class CharacterItemEntity(

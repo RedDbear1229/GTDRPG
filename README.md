@@ -27,6 +27,7 @@ GTD(Getting Things Done) 방법론과 D&D(Dungeons & Dragons) TRPG 시스템을 
 | [08. 기술 스택](docs/08_tech_stack.md) | 아키텍처, 의존성, 패키지 구조 |
 | [09. 개발 로드맵](docs/09_roadmap.md) | Phase별 작업 목록, 마일스톤, 우선순위 |
 | [10. 디자인 시스템](docs/10_design_system.md) | 색상, 타이포그래피, 컴포넌트 가이드 |
+| [11. CI E2E 마이그레이션 실패 수정 가이드](docs/11_ci_e2e_migration_fix.md) | `character_items` Room 스키마/인덱스 불일치 수정 절차 |
 
 ## Install (ADB Sideload)
 

@@ -206,12 +206,8 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_character_items_characterId` ON `character_items` (`characterId`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_character_items_itemId` ON `character_items` (`itemId`)")
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_character_items_equippedSlot` ON `character_items` (`equippedSlot`)")
-        // 슬롯 단일성: 장착 중인 아이템은 슬롯당 1개만 허용
-        db.execSQL("""
-            CREATE UNIQUE INDEX IF NOT EXISTS `index_character_items_equipped_slot_unique`
-            ON `character_items` (`characterId`, `equippedSlot`)
-            WHERE isEquipped = 1
-        """.trimIndent())
+        // 슬롯 단일성: (characterId, equippedSlot) UNIQUE — 미장착 행은 equippedSlot=NULL이므로 NULL 중복 허용으로 안전
+        db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_character_items_equipped_slot_unique` ON `character_items` (`characterId`, `equippedSlot`)")
     }
 }
 
